@@ -31,13 +31,11 @@ rebook/
 │   ├── 06-roadmap.md        # Дорожная карта проекта
 │   ├── 07-risks.md          # Карта рисков и способы защиты
 │   └── demo-setup-guide.md  # Инструкция по запуску демо-стенда
-├── workflows/               # Воркфлоу n8n
-│   └── demo-booking.json    # Сценарий записи для n8n
 ├── templates/               # Шаблоны баз данных
 │   └── demo-bookings-template.csv # Структура Google Таблицы
-├── scripts/                 # Утилиты и тесты
-│   └── test_workflow.py     # Валидация сценария
-├── bot.py                   # Telegram-бот записи на Python
+├── scripts/                 # Модули валидации и тесты
+│   └── test_bot.py          # Тестирование логики бота
+├── bot.py                   # Telegram-бот записи на Python (KISS)
 ├── requirements.txt         # Зависимости Python
 └── README.md
 ```
@@ -72,4 +70,4 @@ python3 bot.py
 - **Рынок:** РФ, малый и средний сервисный бизнес с предварительной записью.
 - **Модель:** Разовое внедрение (40–70 тыс. ₽) + абонентское обслуживание (8–15 тыс. ₽/мес).
 - **Цель:** 100 000 ₽/мес recurring доход в течение 3–5 месяцев.
-- **Стек:** Python, pyTelegramBotAPI, Google Sheets API, n8n.
+- **Стек:** Python 3, pyTelegramBotAPI, Google Sheets API, PostgreSQL.
