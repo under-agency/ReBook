@@ -11,13 +11,24 @@ from dotenv import load_dotenv
 import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-load_dotenv()
-bot = telebot.TeleBot(os.environ["TELEGRAM_BOT_TOKEN"])
+# Base and Root directory paths
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+ROOT_DIR = os.path.abspath(os.path.join(BASE_DIR, "..", ".."))
+
+load_dotenv(os.path.join(BASE_DIR, ".env"))
+load_dotenv(os.path.join(ROOT_DIR, ".env"))
+
+bot = telebot.TeleBot(os.environ.get("TELEGRAM_BOT_TOKEN", ""))
 
 # ── Google Sheets (опционально) ────────────────────────────
 sheet = None
-CREDS_FILE = os.path.join(os.path.dirname(__file__), "google-creds.json")
+creds_candidates = [
+    os.path.join(BASE_DIR, "google-creds.json"),
+    os.path.join(ROOT_DIR, "google-creds.json"),
+]
+CREDS_FILE = next((p for p in creds_candidates if os.path.exists(p)), creds_candidates[0])
 SHEET_ID = os.getenv("GOOGLE_SHEET_ID", "")
+
 if os.path.exists(CREDS_FILE) and SHEET_ID:
     try:
         import gspread
@@ -46,7 +57,7 @@ SERVICES = {
     "auto":     {"name": "🚗 Экспресс-ТО",           "price": 1500, "dur": "30 мин"},
 }
 SLOTS = ["11:00", "14:00", "16:30", "19:00"]
-CSV_FILE = "bookings.csv"
+CSV_FILE = os.path.join(ROOT_DIR, "bookings.csv")
 
 # ── Хелперы ────────────────────────────────────────────────
 def dates_3():

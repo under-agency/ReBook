@@ -46,7 +46,7 @@
    ```
 3. Запустите бота:
    ```bash
-   python3 bot.py
+   python3 apps/telegram-bot/bot.py
    ```
 
 ---

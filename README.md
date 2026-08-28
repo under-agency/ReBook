@@ -21,6 +21,10 @@
 
 ```text
 rebook/
+├── apps/                    # Приложения и сервисы
+│   └── telegram-bot/        # Telegram-бот онлайн-записи
+│       ├── bot.py           # Исходный код бота
+│       └── requirements.txt # Зависимости бота
 ├── assets/                  # Логотипы и графика (SVG, PNG)
 ├── docs/                    # Документация проекта
 │   ├── 01-problem.md        # Анализ проблемы и экономика потерь
@@ -35,8 +39,7 @@ rebook/
 │   └── demo-bookings-template.csv # Структура Google Таблицы
 ├── scripts/                 # Модули валидации и тесты
 │   └── test_bot.py          # Тестирование логики бота
-├── bot.py                   # Telegram-бот записи на Python (KISS)
-├── requirements.txt         # Зависимости Python
+├── requirements.txt         # Общие зависимости Python
 └── README.md
 ```
 
@@ -60,7 +63,7 @@ GOOGLE_SHEET_ID=id_вашей_google_таблицы
 
 ### 3. Запуск
 ```bash
-python3 bot.py
+python3 apps/telegram-bot/bot.py
 ```
 
 ---

@@ -8,8 +8,8 @@ import os
 import sys
 from datetime import datetime, timedelta
 
-# Import functions and constants from bot.py
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+# Import functions and constants from apps/telegram-bot/bot.py
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "apps", "telegram-bot")))
 from bot import SERVICES, SLOTS, dates_3, date_display
 
 def test_services_catalog():
