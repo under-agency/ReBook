@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <!-- Перламутровый градиент: мягкие переливы платины, жемчужного розового и ледяного серебра -->
+    <linearGradient id="pearl-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FCFCFD"/>
+      <stop offset="20%" stop-color="#F1F5F9"/>
+      <stop offset="45%" stop-color="#FDF2F8"/>
+      <stop offset="70%" stop-color="#F0F9FF"/>
+      <stop offset="90%" stop-color="#F5F3FF"/>
+      <stop offset="100%" stop-color="#E2E8F0"/>
+    </linearGradient>
+
+    <linearGradient id="pearl-edge" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="50%" stop-color="#FBCFE8" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#CBD5E1"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Базовый сквиркл без теней -->
+  <rect width="512" height="512" rx="128" fill="url(#pearl-bg)"/>
+  <rect width="510" height="510" x="1" y="1" rx="127" fill="none" stroke="url(#pearl-edge)" stroke-width="2"/>
+
+  <!-- Чистые буквы Re -->
+  <text x="256" y="322" 
+        font-family="system-ui, -apple-system, 'SF Pro Display', 'Inter', 'Segoe UI', Roboto, sans-serif" 
+        font-size="220" 
+        font-weight="700" 
+        text-anchor="middle" 
+        letter-spacing="-8"
+        fill="#0F172A">Re</text>
+</svg>
