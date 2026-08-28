@@ -23,10 +23,14 @@
 rebook/
 ├── apps/                    # Приложения и сервисы
 │   └── telegram-bot/        # Telegram-бот онлайн-записи
+│       ├── tests/           # Модульные тесты бота
+│       │   └── test_bot.py
 │       ├── bot.py           # Исходный код бота
 │       └── requirements.txt # Зависимости бота
 ├── assets/                  # Логотипы и графика (SVG, PNG)
 ├── docs/                    # Документация проекта
+│   ├── templates/           # Шаблоны баз данных (Google Sheets CSV)
+│   │   └── demo-bookings-template.csv
 │   ├── 01-problem.md        # Анализ проблемы и экономика потерь
 │   ├── 02-product.md        # Модули продукта и сценарии работы
 │   ├── 03-architecture.md   # Техническая архитектура и безопасность
@@ -35,11 +39,8 @@ rebook/
 │   ├── 06-roadmap.md        # Дорожная карта проекта
 │   ├── 07-risks.md          # Карта рисков и способы защиты
 │   └── demo-setup-guide.md  # Инструкция по запуску демо-стенда
-├── templates/               # Шаблоны баз данных
-│   └── demo-bookings-template.csv # Структура Google Таблицы
-├── scripts/                 # Модули валидации и тесты
-│   └── test_bot.py          # Тестирование логики бота
-├── requirements.txt         # Общие зависимости Python
+├── .env.example             # Пример конфигурации переменных окружения
+├── .gitignore               # Исключения Git
 └── README.md
 ```
 
@@ -49,11 +50,11 @@ rebook/
 
 ### 1. Установка зависимостей
 ```bash
-pip install -r requirements.txt
+pip install -r apps/telegram-bot/requirements.txt
 ```
 
 ### 2. Настройка переменных окружения
-Создайте файл `.env` на основе `.env.example`:
+Создайте файл `.env` в корне проекта на основе `.env.example`:
 ```env
 TELEGRAM_BOT_TOKEN=ваш_токен_от_BotFather
 GOOGLE_SHEET_ID=id_вашей_google_таблицы
@@ -61,7 +62,12 @@ GOOGLE_SHEET_ID=id_вашей_google_таблицы
 
 Поместите ключ сервисного аккаунта Google в корень проекта с именем `google-creds.json` (подробнее в [docs/demo-setup-guide.md](docs/demo-setup-guide.md)).
 
-### 3. Запуск
+### 3. Запуск тестов
+```bash
+python3 apps/telegram-bot/tests/test_bot.py
+```
+
+### 4. Запуск бота
 ```bash
 python3 apps/telegram-bot/bot.py
 ```

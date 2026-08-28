@@ -22,7 +22,7 @@
 
 1. Создайте новую таблицу в Google Sheets (например, `ReBook - Демо расписание`).
 2. Назовите первый лист **`Записи`**.
-3. Добавьте в первую строку заголовки (или используйте файл [`templates/demo-bookings-template.csv`](../templates/demo-bookings-template.csv)):
+3. Добавьте в первую строку заголовки (или используйте файл [`templates/demo-bookings-template.csv`](templates/demo-bookings-template.csv)):
    | A | B | C | D | E | F | G | H | I | J |
    |---|---|---|---|---|---|---|---|---|---|
    | **ID Брони** | **Дата создания** | **Клиент ID** | **Имя клиента** | **Telegram** | **Услуга** | **Стоимость** | **Дата визита** | **Время** | **Статус** |
@@ -37,7 +37,7 @@
 
 1. Установите зависимости:
    ```bash
-   pip install -r requirements.txt
+   pip install -r apps/telegram-bot/requirements.txt
    ```
 2. Создайте файл `.env` на основе `.env.example`:
    ```env
