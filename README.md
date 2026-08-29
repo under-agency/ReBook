@@ -22,12 +22,19 @@
 ```text
 rebook/
 ├── apps/                    # Приложения и сервисы
-│   └── telegram-bot/        # Telegram-бот онлайн-записи
+│   ├── backend/             # CRM: FastAPI + PostgreSQL, бот записи, воркер
+│   │   ├── app/             # API, модели, каналы, бот, воркер
+│   │   ├── migrations/      # Alembic
+│   │   ├── tests/           # pytest: изоляция тенантов, каскад, отчёты
+│   │   └── README.md        # Установка и запуск бэкенда
+│   ├── web/                 # Кабинет владельца и админка (React + Vite)
+│   └── telegram-bot/        # Legacy демо-бот на Google Sheets (не трогаем)
 │       ├── tests/           # Модульные тесты бота
 │       │   └── test_bot.py
 │       ├── bot.py           # Исходный код бота
 │       └── requirements.txt # Зависимости бота
 ├── assets/                  # Логотипы и графика (SVG, PNG)
+├── scripts/dev.ps1          # Поднимает всё dev-окружение одной командой
 ├── docs/                    # Документация проекта
 │   ├── templates/           # Шаблоны баз данных (Google Sheets CSV)
 │   │   └── demo-bookings-template.csv
@@ -43,6 +50,22 @@ rebook/
 ├── .gitignore               # Исключения Git
 └── README.md
 ```
+
+---
+
+## Быстрый запуск CRM
+
+Требуется Python 3.13, Node 20+ и PostgreSQL (локально или в WSL).
+
+```bash
+powershell -File scripts/dev.ps1
+```
+
+Скрипт поднимает Postgres, бэкенд на `:8000`, кабинет на `:5173` и процесс бота с воркером.
+Первая установка и сидирование демо-данных — в [apps/backend/README.md](apps/backend/README.md).
+
+Демо-учётки после `python -m app.seed`: владелец `owner@demo.ru / owner12345`,
+администратор салона `staff@demo.ru / staff12345`, superadmin `admin@rebook.ru / admin12345`.
 
 ---
 
