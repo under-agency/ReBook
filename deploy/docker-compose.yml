@@ -1,0 +1,73 @@
+# Прод-развёртывание ReBook на Ubuntu Server.
+#   cd deploy && cp .env.example .env && nano .env && docker compose up -d
+name: rebook
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-rebook}
+      POSTGRES_USER: ${DB_USER:-rebook}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?задайте DB_PASSWORD в .env}
+      # база в UTF-8 независимо от локали хоста
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-rebook} -d ${DB_NAME:-rebook}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db: {condition: service_healthy}
+    environment: &app_env
+      DATABASE_URL: postgresql+psycopg://${DB_USER:-rebook}:${DB_PASSWORD}@db:5432/${DB_NAME:-rebook}
+      SESSION_SECRET: ${SESSION_SECRET:?задайте SESSION_SECRET в .env}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      BOT_SALON_ID: ${BOT_SALON_ID:-}
+    # схема накатывается до старта API
+    command: >
+      sh -c "python -m alembic upgrade head &&
+             python -m uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request;urllib.request.urlopen('http://127.0.0.1:8000/api/health')\""]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
+  # Бот и планировщик — отдельный процесс: один полинг на токен,
+  # API можно перезапускать независимо.
+  worker:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      backend: {condition: service_started}
+      db: {condition: service_healthy}
+    environment: *app_env
+    command: ["python", "-m", "app.run_bot"]
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on: [backend]
+    ports: ["80:80", "443:443"]
+    environment:
+      DOMAIN: ${DOMAIN:?задайте DOMAIN в .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  db_data:
+  caddy_data:
+  caddy_config:

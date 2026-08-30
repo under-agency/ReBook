@@ -1,0 +1,19 @@
+# HTTPS через Let's Encrypt получаем автоматически по имени домена.
+{$DOMAIN} {
+	encode gzip
+
+	# вебхуки ботов и API кабинета — один бэкенд
+	reverse_proxy backend:8000
+
+	log {
+		output file /data/access.log
+		format json
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy strict-origin-when-cross-origin
+	}
+}

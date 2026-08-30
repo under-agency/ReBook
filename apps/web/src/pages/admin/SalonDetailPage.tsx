@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api, errorText } from "../../api/client";
 import { useAuth } from "../../auth/AuthContext";
@@ -13,17 +13,15 @@ const FLAG_LABELS: Record<string, string> = {
 };
 
 function Overview({ salon, onSaved }: { salon: any; onSaved: () => void }) {
-  const [form, setForm] = useState<any>({});
+  // форма пересоздаётся через key={salon.id} при переходе к другому салону
+  const [form, setForm] = useState<any>(() => ({
+    name: salon.name, status: salon.status,
+    avg_check: salon.avg_check ?? "", sms_limit_month: salon.sms_limit_month,
+    monthly_fee: salon.monthly_fee ?? "",
+    next_payment_at: salon.next_payment_at ?? "",
+    tg_bot_token: "",
+  }));
   const [msg, setMsg] = useState("");
-  useEffect(() => {
-    setForm({
-      name: salon.name, status: salon.status,
-      avg_check: salon.avg_check ?? "", sms_limit_month: salon.sms_limit_month,
-      monthly_fee: salon.monthly_fee ?? "",
-      next_payment_at: salon.next_payment_at ?? "",
-      tg_bot_token: "",
-    });
-  }, [salon]);
 
   const save = async () => {
     setMsg("");
@@ -151,8 +149,8 @@ function Billing({ salon, onSaved }: { salon: any; onSaved: () => void }) {
 }
 
 function Flags({ salon, onSaved }: { salon: any; onSaved: () => void }) {
-  const [flags, setFlags] = useState<Record<string, boolean>>({});
-  useEffect(() => setFlags({ ...(salon.feature_flags ?? {}) }), [salon]);
+  const [flags, setFlags] = useState<Record<string, boolean>>(
+    () => ({ ...(salon.feature_flags ?? {}) }));
 
   const save = async () => {
     await api(`/api/admin/salons/${salon.id}`, {
@@ -259,9 +257,9 @@ export default function SalonDetailPage() {
       <Tabs active={tab} onChange={setTab} tabs={[
         ["overview", "Обзор"], ["billing", "Биллинг"], ["flags", "Флаги"], ["audit", "Аудит"],
       ]} />
-      {tab === "overview" && <Overview salon={s} onSaved={onSaved} />}
-      {tab === "billing" && <Billing salon={s} onSaved={onSaved} />}
-      {tab === "flags" && <Flags salon={s} onSaved={onSaved} />}
+      {tab === "overview" && <Overview key={s.id} salon={s} onSaved={onSaved} />}
+      {tab === "billing" && <Billing key={s.id} salon={s} onSaved={onSaved} />}
+      {tab === "flags" && <Flags key={s.id} salon={s} onSaved={onSaved} />}
       {tab === "audit" && <SalonAudit salonId={salonId} />}
     </>
   );

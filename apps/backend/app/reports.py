@@ -37,32 +37,31 @@ def month_report(db: Session, salon: Salon, year: int, month: int) -> dict:
         Booking.starts_at < end,
     )
 
-    def count(*conds) -> int:
-        return db.scalar(select(func.count(Booking.id)).where(in_month, *conds)) or 0
+    reminded = _had_message(Booking, REMINDER_KINDS)
+    visited = Booking.status.in_(("confirmed", "done"))
 
-    total = count()
-    # Подтверждено = confirmed|done ПОСЛЕ отправленного напоминания (10-crm-logic.md)
-    confirmed_after_reminder = count(
-        Booking.status.in_(("confirmed", "done")), _had_message(Booking, REMINDER_KINDS))
-    done = count(Booking.status == "done")
-    no_show = count(Booking.status == "no_show")
-    cancelled = count(Booking.status == "cancelled")
-    rescheduled = count(Booking.status == "rescheduled")
+    def n(*conds):
+        return func.count(Booking.id).filter(*conds)
 
-    # Визиты из листа ожидания: клиенту уходило waitlist_offer по этой записи
-    waitlist_visits = count(
-        Booking.status.in_(("confirmed", "done")), _had_message(Booking, ("waitlist_offer",)))
-    # Визиты из реактивации: клиент получил reactivation в 30 дней до создания записи
-    reactivation_visits = db.scalar(select(func.count(Booking.id)).where(
-        in_month,
-        Booking.status.in_(("confirmed", "done")),
-        exists(select(MessageLog.id).where(
+    # один проход по записям месяца вместо семи отдельных COUNT-ов
+    (total, confirmed_after_reminder, done, no_show, cancelled, rescheduled,
+     waitlist_visits, reactivation_visits) = db.execute(select(
+        func.count(Booking.id),
+        n(visited, reminded),
+        n(Booking.status == "done"),
+        n(Booking.status == "no_show"),
+        n(Booking.status == "cancelled"),
+        n(Booking.status == "rescheduled"),
+        # визиты из листа ожидания: по этой записи уходило предложение окна
+        n(visited, _had_message(Booking, ("waitlist_offer",))),
+        # визиты из реактивации: клиент получил её в 30 дней до создания записи
+        n(visited, exists(select(MessageLog.id).where(
             MessageLog.customer_id == Booking.customer_id,
             MessageLog.kind == "reactivation",
             MessageLog.sent_at < Booking.created_at,
             MessageLog.sent_at > Booking.created_at - timedelta(days=30),
-        )),
-    )) or 0
+        ))),
+    ).where(in_month)).one()
 
     # Разбивка сообщений по каналам и типам
     msg_rows = db.execute(select(

@@ -2,7 +2,7 @@
 from datetime import date, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models import Booking, Customer, Salon, Service, Staff
@@ -61,11 +61,26 @@ def validate_slot(
     return warnings
 
 
+def _lock_slot(db: Session, salon_id: int, staff_id: int | None, day: date) -> None:
+    """Сериализует создание записей для одного мастера в один день.
+
+    Без этого два клиента, нажавшие одно и то же время одновременно, оба
+    пройдут проверку занятости (она читает состояние до вставки) и займут
+    один слот. Блокировка снимается вместе с транзакцией.
+    """
+    # ключ должен совпадать между процессами (API и бот), поэтому считаем его
+    # арифметикой, а не hash() — тот рандомизирован от запуска к запуску
+    key = ((salon_id * 100_003 + (staff_id or 0)) * 100_003 + day.toordinal()) % (2 ** 31)
+    db.execute(select(func.pg_advisory_xact_lock(key)))
+
+
 def create_booking(
     db: Session, salon: Salon, *, customer: Customer, service: Service,
     staff: Staff | None, starts_at: datetime, source: str = "manual",
     note: str | None = None, force: bool = False,
 ) -> Booking:
+    _lock_slot(db, salon.id, staff.id if staff else None,
+               starts_at.astimezone(ZoneInfo(salon.timezone)).date())
     warnings = validate_slot(db, salon, service=service, staff=staff, starts_at=starts_at)
     if warnings and not force:
         # не блокируем жёстко — фронт показывает предупреждение с «всё равно записать»

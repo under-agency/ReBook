@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
@@ -306,6 +306,8 @@ export default function BookingsPage() {
   const bookings = useQuery({
     queryKey: ["bookings", qs.toString()],
     queryFn: () => api(`/api/bookings?${qs}`),
+    // при листании держим прошлую страницу, чтобы таблица не мигала пустотой
+    placeholderData: keepPreviousData,
   });
 
   return (

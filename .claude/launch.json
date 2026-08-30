@@ -3,7 +3,7 @@
   "configurations": [
     {
       "name": "backend",
-      "runtimeExecutable": "D:\\ReBook\\apps\\backend\\.venv\\Scripts\\python.exe",
+      "runtimeExecutable": "apps/backend/.venv/bin/python",
       "runtimeArgs": ["-m", "uvicorn", "app.main:app", "--app-dir", "apps/backend", "--port", "8000"],
       "port": 8000
     },

@@ -86,6 +86,10 @@ class User(Base):
 
     __table_args__ = (
         CheckConstraint(f"role IN {ROLES}", name="users_role_check"),
+        # логин ищет по lower(email) — обычный UNIQUE(email) такой запрос не покрывает
+        Index("ix_users_email_lower", func.lower(email), unique=True),
+        Index("ix_users_invite_token", "invite_token_hash"),
+        Index("ix_users_salon", "salon_id"),
     )
 
 
@@ -100,6 +104,8 @@ class Service(Base):
     repeat_cycle_days: Mapped[int | None] = mapped_column(Integer)  # NULL = без реактивации
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
 
+    __table_args__ = (Index("ix_services_salon", "salon_id"),)
+
 
 class Staff(Base):
     __tablename__ = "staff"
@@ -109,6 +115,8 @@ class Staff(Base):
     name: Mapped[str] = mapped_column(Text)
     work_hours: Mapped[dict | None] = mapped_column(JSONB)  # NULL = часы салона
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
+
+    __table_args__ = (Index("ix_staff_salon", "salon_id"),)
 
 
 class Customer(Base):
@@ -130,6 +138,9 @@ class Customer(Base):
 
     __table_args__ = (
         UniqueConstraint("salon_id", "phone", name="customers_salon_phone_key"),
+        # бот ищет клиента по tg_id на каждом апдейте
+        Index("ix_customers_salon_tg", "salon_id", "tg_id"),
+        Index("ix_customers_last_service", "last_service_id"),
     )
 
 
@@ -156,6 +167,9 @@ class Booking(Base):
     __table_args__ = (
         CheckConstraint(f"status IN {BOOKING_STATUSES}", name="bookings_status_check"),
         Index("ix_bookings_salon_starts_status", "salon_id", "starts_at", "status"),
+        Index("ix_bookings_customer", "customer_id", "starts_at"),
+        Index("ix_bookings_service", "service_id"),
+        Index("ix_bookings_staff", "staff_id"),
     )
 
 
@@ -169,6 +183,8 @@ class Waitlist(Base):
     wanted_from: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     wanted_to: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (Index("ix_waitlist_salon_wanted", "salon_id", "wanted_from"),)
 
 
 class MessageLog(Base):
@@ -191,6 +207,9 @@ class MessageLog(Base):
     __table_args__ = (
         CheckConstraint(f"channel IN {CHANNELS}", name="message_log_channel_check"),
         Index("ix_message_log_salon_sent", "salon_id", "sent_at"),
+        # карточка записи, переписка клиента и EXISTS-проверки в отчёте
+        Index("ix_message_log_booking_kind", "booking_id", "kind"),
+        Index("ix_message_log_customer_sent", "customer_id", "sent_at"),
     )
 
 
@@ -220,6 +239,8 @@ class SessionRow(Base):
     user_agent: Mapped[str | None] = mapped_column(Text)
 
     user: Mapped[User] = relationship()
+
+    __table_args__ = (Index("ix_sessions_user", "user_id"),)
 
 
 class AuditLog(Base):
@@ -255,3 +276,5 @@ class Payment(Base):
     paid_at: Mapped[date | None] = mapped_column(Date)
     note: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (Index("ix_payments_salon_period", "salon_id", "period_start"),)

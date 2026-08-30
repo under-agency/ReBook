@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import { useState } from "react";
 import { api } from "../../api/client";
@@ -22,6 +22,7 @@ export default function MessagesPage() {
   const messages = useQuery({
     queryKey: ["messages", qs.toString()],
     queryFn: () => api(`/api/messages?${qs}`),
+    placeholderData: keepPreviousData,
   });
 
   const s = stats.data;

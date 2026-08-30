@@ -1,6 +1,6 @@
 /* Редакторы настроек: используются и в «Настройках», и в онбординг-мастере. */
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { api, errorText } from "../api/client";
 import { Empty, Field, Modal, Spinner, money } from "./ui";
 
@@ -159,16 +159,17 @@ const DAY_LABELS: [string, string][] = [
 export function HoursEditor({
   value, onSave,
 }: { value: Record<string, [string, string] | null>; onSave: (hours: any) => Promise<void> }) {
-  const [hours, setHours] = useState<Record<string, [string, string] | null>>({});
-  const [busy, setBusy] = useState(false);
-  useEffect(() => {
+  // состояние формы принадлежит пользователю: инициализируем один раз,
+  // а не синхронизируем эффектом (иначе лишний рендер и затирание правок)
+  const [hours, setHours] = useState<Record<string, [string, string] | null>>(() => {
     const init: Record<string, [string, string] | null> = {};
     for (const [key] of DAY_LABELS) {
       const entry: any = (value as any)?.[key];
       init[key] = entry ? [entry[0], entry[1]] : null;
     }
-    setHours(init);
-  }, [value]);
+    return init;
+  });
+  const [busy, setBusy] = useState(false);
 
   const set = (day: string, idx: 0 | 1, v: string) => {
     setHours((h) => {
@@ -225,9 +226,8 @@ const TEXT_LABELS: [string, string][] = [
 export function TextsEditor({
   value, onSave,
 }: { value: Record<string, string>; onSave: (texts: Record<string, string>) => Promise<void> }) {
-  const [texts, setTexts] = useState<Record<string, string>>({});
+  const [texts, setTexts] = useState<Record<string, string>>(() => ({ ...value }));
   const [busy, setBusy] = useState(false);
-  useEffect(() => setTexts({ ...value }), [value]);
 
   return (
     <>

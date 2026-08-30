@@ -18,8 +18,15 @@ def months(ctx: Ctx = Depends(require_owner), db: Session = Depends(get_db)):
     """Месяцы, за которые есть записи (в поясе салона), новые сверху."""
     salon = db.get(Salon, ctx.salon_id)
     tz = ZoneInfo(salon.timezone)
-    rows = db.scalars(select(Booking.starts_at).where(Booking.salon_id == ctx.salon_id)).all()
-    months_set = {dt.astimezone(tz).strftime("%Y-%m") for dt in rows}
+    # агрегируем в базе: выгружать все starts_at ради списка месяцев не нужно
+    local_month = func.to_char(
+        func.date_trunc("month", func.timezone(salon.timezone, Booking.starts_at)),
+        "YYYY-MM",
+    )
+    rows = db.scalars(
+        select(local_month).where(Booking.salon_id == ctx.salon_id).distinct()
+    ).all()
+    months_set = set(rows)
     months_set.add(datetime.now(tz).strftime("%Y-%m"))
     return {"months": sorted(months_set, reverse=True)}
 

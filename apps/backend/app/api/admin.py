@@ -3,7 +3,7 @@ from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, EmailStr
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session, joinedload
 
 from app.audit import audit
@@ -16,28 +16,55 @@ from app.services.salons import NICHE_PRESETS, create_salon, invite_owner
 router = APIRouter()
 
 
-def _salon_health(db: Session, salon: Salon) -> dict:
-    now = datetime.now(timezone.utc)
-    last_activity = db.scalar(select(func.max(MessageLog.sent_at)).where(
-        MessageLog.salon_id == salon.id))
-    errors_24h = db.scalar(select(func.count(MessageLog.id)).where(
-        MessageLog.salon_id == salon.id,
-        MessageLog.delivery_status == "failed",
-        MessageLog.sent_at >= now - timedelta(hours=24))) or 0
+def _month_start_utc(salon: Salon, now: datetime) -> datetime:
     tz = ZoneInfo(salon.timezone)
     local_now = now.astimezone(tz)
-    month_start = datetime(local_now.year, local_now.month, 1, tzinfo=tz).astimezone(timezone.utc)
-    sms_used = db.scalar(select(func.count(MessageLog.id)).where(
-        MessageLog.salon_id == salon.id, MessageLog.channel == "sms",
-        MessageLog.sent_at >= month_start)) or 0
-    return {
-        "last_activity": iso(last_activity),
-        "errors_24h": errors_24h,
-        "sms_used": sms_used,
-    }
+    return datetime(local_now.year, local_now.month, 1, tzinfo=tz).astimezone(timezone.utc)
 
 
-def _salon_dto(db: Session, salon: Salon, with_health: bool = True) -> dict:
+EMPTY_HEALTH = {"last_activity": None, "errors_24h": 0, "sms_used": 0}
+
+
+def _health_map(db: Session, salons: list[Salon]) -> dict[int, dict]:
+    """Здоровье всех салонов одним запросом.
+
+    Салоны живут в разных часовых поясах, поэтому «начало месяца» для счётчика
+    SMS у каждого своё — подставляем его через CASE по salon_id.
+    """
+    if not salons:
+        return {}
+    now = datetime.now(timezone.utc)
+    month_starts = case(
+        *[(MessageLog.salon_id == s.id, _month_start_utc(s, now)) for s in salons],
+        else_=now,
+    )
+    rows = db.execute(select(
+        MessageLog.salon_id,
+        func.max(MessageLog.sent_at),
+        func.count(MessageLog.id).filter(
+            MessageLog.delivery_status == "failed",
+            MessageLog.sent_at >= now - timedelta(hours=24)),
+        func.count(MessageLog.id).filter(
+            MessageLog.channel == "sms", MessageLog.sent_at >= month_starts),
+    ).where(
+        MessageLog.salon_id.in_([s.id for s in salons])
+    ).group_by(MessageLog.salon_id)).all()
+    health = {s.id: dict(EMPTY_HEALTH) for s in salons}
+    for salon_id, last_activity, errors_24h, sms_used in rows:
+        health[salon_id] = {
+            "last_activity": iso(last_activity),
+            "errors_24h": errors_24h or 0,
+            "sms_used": sms_used or 0,
+        }
+    return health
+
+
+def _salon_health(db: Session, salon: Salon) -> dict:
+    return _health_map(db, [salon])[salon.id]
+
+
+def _salon_dto(db: Session, salon: Salon, health: dict | None = None,
+               with_health: bool = True) -> dict:
     dto = {
         "id": salon.id, "name": salon.name, "status": salon.status, "niche": salon.niche,
         "timezone": salon.timezone,
@@ -53,7 +80,7 @@ def _salon_dto(db: Session, salon: Salon, with_health: bool = True) -> dict:
         "created_at": iso(salon.created_at),
     }
     if with_health:
-        dto["health"] = _salon_health(db, salon)
+        dto["health"] = health if health is not None else _salon_health(db, salon)
     return dto
 
 
@@ -67,8 +94,9 @@ def _problem_rank(dto: dict) -> tuple:
 
 @router.get("/salons")
 def list_salons(ctx: Ctx = Depends(require_superadmin), db: Session = Depends(get_db)):
-    salons = db.scalars(select(Salon)).all()
-    items = [_salon_dto(db, s) for s in salons]
+    salons = list(db.scalars(select(Salon)).all())
+    health = _health_map(db, salons)
+    items = [_salon_dto(db, s, health=health[s.id]) for s in salons]
     items.sort(key=_problem_rank)
     return {"items": items}
 

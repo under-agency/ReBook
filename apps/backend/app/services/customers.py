@@ -1,10 +1,10 @@
 """Клиенты: вычисляемый статус (не хранится) и upsert без дублей."""
 from datetime import date
 
-from sqlalchemy import select
+from sqlalchemy import Date, case, cast, literal, or_, select
 from sqlalchemy.orm import Session
 
-from app.models import Customer
+from app.models import Customer, Service
 
 SLEEP_MARGIN = 1.2   # цикл истёк + 20% запаса
 LOST_CYCLES = 3      # больше трёх циклов — потерянный
@@ -27,6 +27,23 @@ def computed_status(customer: Customer, today: date) -> str:
     if days > cycle * SLEEP_MARGIN:
         return "sleeping"
     return "active"
+
+
+def status_expression(today: date):
+    """Та же логика, что в computed_status, но выражением SQL.
+
+    Нужна, чтобы фильтровать и пагинировать клиентов в базе, а не в памяти.
+    Совпадение обеих веток закреплено тестом test_customer_status.py.
+    """
+    days = cast(literal(today), Date) - Customer.last_visit_at
+    cycle = Service.repeat_cycle_days
+    return case(
+        (Customer.do_not_disturb.is_(True), "excluded"),
+        (or_(Customer.last_visit_at.is_(None), cycle.is_(None)), "active"),
+        (days > cycle * LOST_CYCLES, "lost"),
+        (days > cycle * SLEEP_MARGIN, "sleeping"),
+        else_="active",
+    )
 
 
 def upsert_customer(

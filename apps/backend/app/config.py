@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     def _empty_as_none(cls, v):
         return None if v == "" else v
 
+    db_pool_size: int = 10
+    db_max_overflow: int = 20
+
     session_ttl_days: int = 30
     invite_ttl_hours: int = 72
     # Коэффициент неявок по умолчанию для расчёта «возвращено ≈ N ₽» (10-crm-logic.md)

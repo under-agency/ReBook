@@ -3,15 +3,15 @@ from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from sqlalchemy import or_, select
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import func, or_, select
+from sqlalchemy.orm import Session, contains_eager, joinedload
 
 from app.audit import audit
 from app.api.dto import booking_dto, customer_dto, message_dto
 from app.db import get_db
 from app.deps import Ctx, get_owned_or_404, require_salon
-from app.models import Booking, Customer, MessageLog, Salon
-from app.services.customers import computed_status, normalize_phone
+from app.models import Booking, Customer, MessageLog, Salon, Service
+from app.services.customers import computed_status, normalize_phone, status_expression
 
 router = APIRouter()
 
@@ -28,18 +28,28 @@ def list_customers(
     ctx: Ctx = Depends(require_salon), db: Session = Depends(get_db),
 ):
     today = _today(db, ctx)
-    query = select(Customer).options(joinedload(Customer.last_service)) \
+    # статус вычисляется в SQL — иначе пришлось бы тянуть всю базу салона в память
+    status_col = status_expression(today).label("status")
+    query = (
+        select(Customer, status_col)
+        .outerjoin(Service, Customer.last_service_id == Service.id)
+        .options(contains_eager(Customer.last_service))
         .where(Customer.salon_id == ctx.salon_id)
+    )
     if q:
         like = f"%{q.strip()}%"
         query = query.where(or_(Customer.name.ilike(like), Customer.phone.ilike(like)))
-    rows = db.scalars(query.order_by(Customer.name.nullslast(), Customer.id)).all()
-    items = [customer_dto(c, computed_status(c, today)) for c in rows]
     if status:
-        items = [c for c in items if c["status"] == status]
-    total = len(items)
-    items = items[(page - 1) * page_size:page * page_size]
-    return {"items": items, "total": total, "page": page}
+        query = query.where(status_col == status)
+    total = db.scalar(select(func.count()).select_from(query.subquery())) or 0
+    rows = db.execute(
+        query.order_by(Customer.name.nullslast(), Customer.id)
+        .offset((page - 1) * page_size).limit(page_size)
+    ).all()
+    return {
+        "items": [customer_dto(c, st) for c, st in rows],
+        "total": total, "page": page,
+    }
 
 
 class CustomerCreateIn(BaseModel):

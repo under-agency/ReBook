@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import { useState } from "react";
 import { api, errorText } from "../../api/client";
@@ -100,6 +100,7 @@ export default function CustomersPage() {
   const customers = useQuery({
     queryKey: ["customers", qs.toString()],
     queryFn: () => api(`/api/customers?${qs}`),
+    placeholderData: keepPreviousData,
   });
 
   return (

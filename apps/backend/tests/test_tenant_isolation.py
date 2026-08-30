@@ -80,3 +80,67 @@ def test_impersonation_is_audited_as_support(db, client, salon_a):
     rows = db.scalars(select(AuditLog).where(
         AuditLog.salon_id == salon_a.id, AuditLog.action == "update")).all()
     assert rows and all(r.is_support for r in rows)
+
+
+def test_aggregates_count_only_own_salon(db, client, salon_a, salon_b):
+    """Дашборд и отчёт не должны видеть чужие записи."""
+    from datetime import datetime, timedelta, timezone
+    from decimal import Decimal
+    from app.models import MessageLog
+
+    for salon, count in ((salon_a, 1), (salon_b, 5)):
+        service = make_service(db, salon)
+        customer = make_customer(db, salon)
+        salon.avg_check = Decimal("2000")
+        for i in range(count):
+            b = make_booking(db, salon, customer, service,
+                             starts_at=datetime.now(timezone.utc) - timedelta(days=i + 1),
+                             status="done")
+            db.add(MessageLog(salon_id=salon.id, customer_id=customer.id, booking_id=b.id,
+                              channel="tg", kind="reminder_24h", cost=Decimal("0"),
+                              delivery_status="sent", sent_at=b.starts_at))
+    db.flush()
+
+    login(client, make_user(db, salon_a))
+    month = datetime.now(timezone.utc).strftime("%Y-%m")
+    summary = client.get(f"/api/dashboard/summary?month={month}").json()
+    assert summary["bookings_total"] <= 1, "в сводку попали записи чужого салона"
+
+    report = client.get(f"/api/reports/{month}").json()
+    assert report["bookings_total"] == summary["bookings_total"]
+
+
+def test_every_list_endpoint_is_scoped(db, client, salon_a, salon_b):
+    """Списочные эндпоинты не отдают объекты чужого салона."""
+    from app.models import MessageLog
+
+    _fixtures(db, salon_a)
+    service_b, staff_b, customer_b, booking_b = _fixtures(db, salon_b)
+    message_b = MessageLog(salon_id=salon_b.id, customer_id=customer_b.id,
+                           booking_id=booking_b.id, channel="tg", kind="reminder_24h",
+                           text="чужое", delivery_status="sent")
+    db.add(message_b)
+    db.flush()
+    login(client, make_user(db, salon_a))
+
+    foreign = {
+        "/api/bookings": booking_b.id,
+        "/api/customers": customer_b.id,
+        "/api/settings/services": service_b.id,
+        "/api/settings/staff": staff_b.id,
+        "/api/messages": message_b.id,
+    }
+    for path, foreign_id in foreign.items():
+        r = client.get(path)
+        assert r.status_code == 200, f"{path} → {r.status_code}"
+        ids = {item["id"] for item in r.json()["items"]}
+        assert foreign_id not in ids, f"{path} отдал объект чужого салона"
+
+
+def test_customer_status_filter_is_scoped(db, client, salon_a, salon_b):
+    """Фильтр статуса считается в SQL — проверяем, что он не выходит за салон."""
+    make_customer(db, salon_b, name="Чужой")
+    make_customer(db, salon_a, name="Свой")
+    login(client, make_user(db, salon_a))
+    names = {c["name"] for c in client.get("/api/customers?status=active").json()["items"]}
+    assert "Чужой" not in names

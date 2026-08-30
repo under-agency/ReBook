@@ -3,43 +3,52 @@
 FastAPI + PostgreSQL + SQLAlchemy 2. Здесь живут API кабинета и админки,
 Telegram-бот записи и воркер (каскад напоминаний, автозакрытие, биллинг-статусы).
 
+Целевая платформа — Ubuntu Server 22.04/24.04.
+
 ## Установка
 
+Проще всего одной командой из корня репозитория — она поставит Postgres, Python,
+Node, заведёт базы и накатит схему с демо-данными:
+
 ```bash
-py -3.13 -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-copy .env.example .env
+sudo ./scripts/setup.sh
 ```
 
-Нужна PostgreSQL с базами `rebook` и `rebook_test` (владелец `rebook`).
-Если Postgres стоит в WSL, поднимите его перед работой:
+Вручную, если окружение уже подготовлено:
 
 ```bash
-wsl -d Ubuntu -u root service postgresql start
+python3 -m venv .venv
+./.venv/bin/pip install -r requirements.txt
+cp .env.example .env
+./.venv/bin/python -m alembic upgrade head
+./.venv/bin/python -m app.seed
 ```
 
-Схема и демо-данные:
+Нужна PostgreSQL с базами `rebook` и `rebook_test` (владелец — роль `rebook`):
 
 ```bash
-python -m alembic upgrade head
-python -m app.seed --reset
+sudo -u postgres psql -c "CREATE USER rebook PASSWORD 'rebook_dev'"
+sudo -u postgres psql -c "CREATE DATABASE rebook OWNER rebook ENCODING 'UTF8' TEMPLATE template0"
+sudo -u postgres psql -c "CREATE DATABASE rebook_test OWNER rebook ENCODING 'UTF8' TEMPLATE template0"
 ```
 
 Сиды создают учётки: `admin@rebook.ru / admin12345` (superadmin),
 `owner@demo.ru / owner12345` (владелец), `staff@demo.ru / staff12345` (админ салона).
+Пересоздать демо-данные: `./.venv/bin/python -m app.seed --reset`.
 
 ## Запуск
 
 ```bash
-python -m uvicorn app.main:app --reload --port 8000
+./.venv/bin/python -m uvicorn app.main:app --reload --port 8000
 ```
 
 Бот и воркер — отдельный процесс (без `--reload`, иначе два полинга на один токен):
 
 ```bash
-python -m app.run_bot
+./.venv/bin/python -m app.run_bot
 ```
+
+Всё сразу вместе с фронтом: `./scripts/dev.sh` из корня репозитория.
 
 Бот берёт салон из `BOT_SALON_ID` или первый салон с токеном. Токен задаётся
 в `.env` (`TELEGRAM_BOT_TOKEN`, попадает в салон при сидировании) либо через
@@ -49,12 +58,13 @@ Telegram отдаёт 409 на два полинга с одним токено�
 ## Тесты
 
 ```bash
-python -m pytest
+./.venv/bin/python -m pytest
 ```
 
 Покрыты: изоляция тенантов (чужой объект → 404), расчёт свободных окон,
 статусная модель и автозакрытие, каскад напоминаний с фейковым транспортом,
-формула отчёта, auth и приглашения.
+формула отчёта, совпадение SQL- и Python-веток статуса клиента, гонка при
+одновременной записи на один слот, auth и приглашения.
 
 ## Структура
 
@@ -71,7 +81,8 @@ python -m pytest
 
 ## Заметки по окружению
 
-- Windows: пакет `tzdata` обязателен (иначе `ZoneInfo("Europe/Moscow")` падает).
-- Кириллица в консоли: `$env:PYTHONUTF8=1`.
+- Схема меняется только через Alembic: правим `app/models.py`, затем
+  `alembic revision --autogenerate -m "что изменили"` и `alembic upgrade head`.
 - SMS-агрегатор не подключён: SMS-звено каскада пишется в `message_log`
   с `delivery_status='stub'` и реальной стоимостью — расчёты и лимиты работают.
+- Прод-развёртывание (Docker + Caddy + HTTPS) — `deploy/README.md`.

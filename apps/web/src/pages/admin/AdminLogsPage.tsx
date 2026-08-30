@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import { useState } from "react";
 import { api } from "../../api/client";
@@ -14,6 +14,7 @@ function MessagesLog() {
   const data = useQuery({
     queryKey: ["admin-messages", qs.toString()],
     queryFn: () => api(`/api/admin/messages?${qs}`),
+    placeholderData: keepPreviousData,
   });
   return (
     <>
@@ -64,6 +65,7 @@ function AuditLog() {
   const data = useQuery({
     queryKey: ["admin-audit", page],
     queryFn: () => api(`/api/admin/audit?page=${page}&page_size=50`),
+    placeholderData: keepPreviousData,
   });
   return data.isLoading ? <Spinner /> : (
     <>

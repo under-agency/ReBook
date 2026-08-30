@@ -1,23 +1,18 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { api, errorText } from "../../api/client";
+import { useAuth } from "../../auth/AuthContext";
 import { HoursEditor, ServicesEditor, StaffEditor, TextsEditor } from "../../components/editors";
 import { Field, Spinner, Tabs } from "../../components/ui";
 
 function ParamsEditor({ settings }: { settings: any }) {
   const qc = useQueryClient();
-  const [name, setName] = useState("");
-  const [avgCheck, setAvgCheck] = useState("");
-  const [off1, setOff1] = useState(24);
-  const [off2, setOff2] = useState(3);
+  // форма инициализируется один раз; пересоздание — через key у родителя
+  const [name, setName] = useState(settings.name ?? "");
+  const [avgCheck, setAvgCheck] = useState(String(settings.avg_check ?? ""));
+  const [off1, setOff1] = useState(settings.remind_offsets_h?.[0] ?? 24);
+  const [off2, setOff2] = useState(settings.remind_offsets_h?.[1] ?? 3);
   const [msg, setMsg] = useState("");
-
-  useEffect(() => {
-    setName(settings.name ?? "");
-    setAvgCheck(String(settings.avg_check ?? ""));
-    setOff1(settings.remind_offsets_h?.[0] ?? 24);
-    setOff2(settings.remind_offsets_h?.[1] ?? 3);
-  }, [settings]);
 
   const save = async () => {
     setMsg("");
@@ -65,10 +60,12 @@ function ParamsEditor({ settings }: { settings: any }) {
 export default function SettingsPage() {
   const [tab, setTab] = useState("services");
   const qc = useQueryClient();
+  const { me } = useAuth();
   const settings = useQuery({ queryKey: ["settings"], queryFn: () => api("/api/settings") });
 
   if (settings.isLoading) return <Spinner />;
   const s = settings.data;
+  const salonKey = me?.salon?.id ?? 0;
 
   const saveHours = async (work_hours: any) => {
     await api("/api/settings", { method: "PATCH", body: { work_hours } });
@@ -88,9 +85,9 @@ export default function SettingsPage() {
       ]} />
       {tab === "services" && <ServicesEditor />}
       {tab === "staff" && <StaffEditor />}
-      {tab === "hours" && <HoursEditor value={s.work_hours} onSave={saveHours} />}
-      {tab === "texts" && <TextsEditor value={s.texts} onSave={saveTexts} />}
-      {tab === "params" && <ParamsEditor settings={s} />}
+      {tab === "hours" && <HoursEditor key={salonKey} value={s.work_hours} onSave={saveHours} />}
+      {tab === "texts" && <TextsEditor key={salonKey} value={s.texts} onSave={saveTexts} />}
+      {tab === "params" && <ParamsEditor key={salonKey} settings={s} />}
     </>
   );
 }

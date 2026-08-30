@@ -28,15 +28,14 @@ rebook/
 │   │   ├── tests/           # pytest: изоляция тенантов, каскад, отчёты
 │   │   └── README.md        # Установка и запуск бэкенда
 │   ├── web/                 # Кабинет владельца и админка (React + Vite)
-│   └── telegram-bot/        # Legacy демо-бот на Google Sheets (не трогаем)
+│   └── telegram-bot/        # Legacy демо-стенд (записи в CSV)
 │       ├── tests/           # Модульные тесты бота
 │       │   └── test_bot.py
 │       ├── bot.py           # Исходный код бота
 │       └── requirements.txt # Зависимости бота
 ├── assets/                  # Логотипы и графика (SVG, PNG)
-├── scripts/dev.ps1          # Поднимает всё dev-окружение одной командой
 ├── docs/                    # Документация проекта
-│   ├── templates/           # Шаблоны баз данных (Google Sheets CSV)
+│   ├── templates/           # CSV-шаблон журнала записей
 │   │   └── demo-bookings-template.csv
 │   ├── 01-problem.md        # Анализ проблемы и экономика потерь
 │   ├── 02-product.md        # Модули продукта и сценарии работы
@@ -46,52 +45,48 @@ rebook/
 │   ├── 06-roadmap.md        # Дорожная карта проекта
 │   ├── 07-risks.md          # Карта рисков и способы защиты
 │   └── demo-setup-guide.md  # Инструкция по запуску демо-стенда
+├── deploy/                  # Прод: Dockerfile, docker-compose, Caddy (HTTPS)
+├── ops/                     # Эксплуатация: бэкапы и проверка восстановления
+├── scripts/                 # setup.sh (установка) и dev.sh (запуск)
 ├── .env.example             # Пример конфигурации переменных окружения
 ├── .gitignore               # Исключения Git
 └── README.md
 ```
 
+Целевая платформа — **Ubuntu Server 22.04/24.04**.
+
 ---
 
 ## Быстрый запуск CRM
 
-Требуется Python 3.13, Node 20+ и PostgreSQL (локально или в WSL).
+Установка на чистом Ubuntu Server (Postgres, Python, Node, базы, схема, демо-данные):
 
 ```bash
-powershell -File scripts/dev.ps1
+sudo ./scripts/setup.sh
 ```
 
-Скрипт поднимает Postgres, бэкенд на `:8000`, кабинет на `:5173` и процесс бота с воркером.
-Первая установка и сидирование демо-данных — в [apps/backend/README.md](apps/backend/README.md).
+Запуск для разработки — бэкенд `:8000`, кабинет `:5173`, бот с воркером:
 
-Демо-учётки после `python -m app.seed`: владелец `owner@demo.ru / owner12345`,
-администратор салона `staff@demo.ru / staff12345`, superadmin `admin@rebook.ru / admin12345`.
+```bash
+./scripts/dev.sh
+```
+
+Демо-учётки: владелец `owner@demo.ru / owner12345`, администратор салона
+`staff@demo.ru / staff12345`, superadmin `admin@rebook.ru / admin12345`.
+
+Подробности по бэкенду — [apps/backend/README.md](apps/backend/README.md),
+боевое развёртывание за HTTPS — [deploy/README.md](deploy/README.md).
 
 ---
 
-## Быстрый запуск демо-бота (Python)
+## Демо-бот (legacy)
 
-### 1. Установка зависимостей
+`apps/telegram-bot` — простой продающий демо-стенд: пишет записи в CSV,
+своей базы не имеет. Рабочий бот записи живёт внутри CRM (`apps/backend/app/bots`).
+
 ```bash
 pip install -r apps/telegram-bot/requirements.txt
-```
-
-### 2. Настройка переменных окружения
-Создайте файл `.env` в корне проекта на основе `.env.example`:
-```env
-TELEGRAM_BOT_TOKEN=ваш_токен_от_BotFather
-GOOGLE_SHEET_ID=id_вашей_google_таблицы
-```
-
-Поместите ключ сервисного аккаунта Google в корень проекта с именем `google-creds.json` (подробнее в [docs/demo-setup-guide.md](docs/demo-setup-guide.md)).
-
-### 3. Запуск тестов
-```bash
-python3 apps/telegram-bot/tests/test_bot.py
-```
-
-### 4. Запуск бота
-```bash
+echo "TELEGRAM_BOT_TOKEN=токен_от_BotFather" > .env
 python3 apps/telegram-bot/bot.py
 ```
 
@@ -102,4 +97,4 @@ python3 apps/telegram-bot/bot.py
 - **Рынок:** РФ, малый и средний сервисный бизнес с предварительной записью.
 - **Модель:** Разовое внедрение (40–70 тыс. ₽) + абонентское обслуживание (8–15 тыс. ₽/мес).
 - **Цель:** 100 000 ₽/мес recurring доход в течение 3–5 месяцев.
-- **Стек:** Python 3, pyTelegramBotAPI, Google Sheets API, PostgreSQL.
+- **Стек:** Python 3 (FastAPI, pyTelegramBotAPI), React + Vite, PostgreSQL; развёртывание — Docker Compose за Caddy на Ubuntu Server.

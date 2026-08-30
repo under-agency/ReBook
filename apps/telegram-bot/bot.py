@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""ReBook Demo Bot — Telegram-бот записи на чистом Python. KISS."""
+"""ReBook Demo Bot — Telegram-бот записи на чистом Python. KISS.
+
+Продающий демо-стенд: пишет записи в CSV.
+Рабочая система — apps/backend (бот записи поверх той же базы, что и CRM).
+"""
 
 import os
 import csv
@@ -19,36 +23,6 @@ load_dotenv(os.path.join(BASE_DIR, ".env"))
 load_dotenv(os.path.join(ROOT_DIR, ".env"))
 
 bot = telebot.TeleBot(os.environ.get("TELEGRAM_BOT_TOKEN", ""))
-
-# ── Google Sheets (опционально) ────────────────────────────
-sheet = None
-creds_candidates = [
-    os.path.join(BASE_DIR, "google-creds.json"),
-    os.path.join(ROOT_DIR, "google-creds.json"),
-]
-CREDS_FILE = next((p for p in creds_candidates if os.path.exists(p)), creds_candidates[0])
-SHEET_ID = os.getenv("GOOGLE_SHEET_ID", "")
-
-if os.path.exists(CREDS_FILE) and SHEET_ID:
-    try:
-        import gspread
-        from google.oauth2.service_account import Credentials
-        creds = Credentials.from_service_account_file(CREDS_FILE, scopes=[
-            "https://www.googleapis.com/auth/spreadsheets",
-            "https://www.googleapis.com/auth/drive",
-        ])
-        gc = gspread.authorize(creds)
-        sp = gc.open_by_key(SHEET_ID)
-        try:
-            sheet = sp.worksheet("Записи")
-        except Exception:
-            sheet = sp.sheet1
-        print(f"✅ Google Sheets подключён! Таблица: '{sp.title}', Лист: '{sheet.title}'")
-    except Exception as e:
-        print(f"⚠️ Google Sheets не подключён: {e}")
-else:
-    print("ℹ️  Google Sheets не настроен, пишем только в CSV.")
-
 
 # ── Каталог услуг ──────────────────────────────────────────
 SERVICES = {
@@ -75,19 +49,12 @@ def dates_3():
     return out
 
 def save(b):
-    # CSV (всегда)
     exists = os.path.exists(CSV_FILE)
     with open(CSV_FILE, "a", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=list(b.keys()))
         if not exists:
             w.writeheader()
         w.writerow(b)
-    # Google Sheets (если подключён)
-    if sheet:
-        try:
-            sheet.append_row(list(b.values()), value_input_option="USER_ENTERED")
-        except Exception as e:
-            print(f"⚠️ Ошибка записи в Sheets: {e}")
 
 def date_display(iso):
     d = next((x for x in dates_3() if x["iso"] == iso), None)
