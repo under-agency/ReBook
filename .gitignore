@@ -26,3 +26,6 @@ dist/
 .DS_Store
 .vscode/
 .idea/
+
+# Claude Code: локальная конфигурация запуска (пути к venv различаются Windows/WSL)
+.claude/launch.json
