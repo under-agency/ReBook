@@ -2,7 +2,7 @@ import { FormEvent, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, errorText } from "../api/client";
 import { Me, useAuth } from "../auth/AuthContext";
-import { Field } from "../components/ui";
+import { Button, Field } from "../components/ui";
 
 export default function LoginPage() {
   const { setMe } = useAuth();
@@ -33,7 +33,7 @@ export default function LoginPage() {
   return (
     <div className="auth-page">
       <form className="auth-card" onSubmit={submit}>
-        <div className="logo">Re<span style={{ color: "var(--accent)" }}>Book</span></div>
+        <div className="logo">Re<span>Book</span></div>
         <Field label="Email">
           <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
                  required autoFocus />
@@ -43,9 +43,9 @@ export default function LoginPage() {
                  onChange={(e) => setPassword(e.target.value)} required />
         </Field>
         {error && <div className="error-text">{error}</div>}
-        <button className="btn-primary" style={{ width: "100%" }} disabled={busy}>
+        <Button type="submit" variant="primary" className="btn-block" disabled={busy}>
           {busy ? "Входим…" : "Войти"}
-        </button>
+        </Button>
       </form>
     </div>
   );

@@ -1,14 +1,16 @@
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { useAuth } from "./auth/AuthContext";
+import ErrorBoundary from "./components/ErrorBoundary";
 import Layout from "./components/Layout";
 import { Spinner } from "./components/ui";
 import LoginPage from "./pages/LoginPage";
 import InvitePage from "./pages/InvitePage";
-import DashboardPage from "./pages/owner/DashboardPage";
+import TodayPage from "./pages/owner/TodayPage";
 import BookingsPage from "./pages/owner/BookingsPage";
 import CustomersPage from "./pages/owner/CustomersPage";
 import MessagesPage from "./pages/owner/MessagesPage";
 import ReportsPage from "./pages/owner/ReportsPage";
+import AuditPage from "./pages/owner/AuditPage";
 import SettingsPage from "./pages/owner/SettingsPage";
 import OnboardingWizard from "./pages/owner/OnboardingWizard";
 import SalonsListPage from "./pages/admin/SalonsListPage";
@@ -44,35 +46,38 @@ export default function App() {
 
   return (
     <Layout>
-      <Routes>
-        {inSalon && (
-          <>
-            <Route path="/" element={<DashboardPage />} />
-            <Route path="/bookings" element={<BookingsPage />} />
-            <Route path="/customers" element={<CustomersPage />} />
-            <Route path="/messages" element={<MessagesPage />} />
-            {role !== "staff" && (
-              <>
-                <Route path="/reports" element={<ReportsPage />} />
-                <Route path="/reports/:month" element={<ReportsPage />} />
-                <Route path="/settings" element={<SettingsPage />} />
-                <Route path="/onboarding" element={<OnboardingWizard />} />
-              </>
-            )}
-          </>
-        )}
-        {role === "superadmin" && (
-          <>
-            <Route path="/admin" element={<SalonsListPage />} />
-            <Route path="/admin/salons/new" element={<SalonNewPage />} />
-            <Route path="/admin/salons/:id" element={<SalonDetailPage />} />
-            <Route path="/admin/logs" element={<AdminLogsPage />} />
-            {!inSalon && <Route path="/" element={<Navigate to="/admin" replace />} />}
-          </>
-        )}
-        <Route path="/login" element={<Navigate to="/" replace />} />
-        <Route path="*" element={<Navigate to={inSalon ? "/" : "/admin"} replace />} />
-      </Routes>
+      <ErrorBoundary key={location.pathname}>
+        <Routes>
+          {inSalon && (
+            <>
+              <Route path="/" element={<TodayPage />} />
+              <Route path="/bookings" element={<BookingsPage />} />
+              <Route path="/customers" element={<CustomersPage />} />
+              <Route path="/messages" element={<MessagesPage />} />
+              {role !== "staff" && (
+                <>
+                  <Route path="/reports" element={<ReportsPage />} />
+                  <Route path="/reports/:month" element={<ReportsPage />} />
+                  <Route path="/audit" element={<AuditPage />} />
+                  <Route path="/settings" element={<SettingsPage />} />
+                  <Route path="/onboarding" element={<OnboardingWizard />} />
+                </>
+              )}
+            </>
+          )}
+          {role === "superadmin" && (
+            <>
+              <Route path="/admin" element={<SalonsListPage />} />
+              <Route path="/admin/salons/new" element={<SalonNewPage />} />
+              <Route path="/admin/salons/:id" element={<SalonDetailPage />} />
+              <Route path="/admin/logs" element={<AdminLogsPage />} />
+              {!inSalon && <Route path="/" element={<Navigate to="/admin" replace />} />}
+            </>
+          )}
+          <Route path="/login" element={<Navigate to="/" replace />} />
+          <Route path="*" element={<Navigate to={inSalon ? "/" : "/admin"} replace />} />
+        </Routes>
+      </ErrorBoundary>
     </Layout>
   );
 }

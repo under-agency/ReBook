@@ -1,0 +1,139 @@
+/* ═══ Токены ReBook ═══════════════════════════════════════════════════════
+   Светлая тема живёт в голом :root. Тёмная переопределяет ТОЛЬКО значения —
+   дважды: в prefers-color-scheme (для «системной») и в [data-theme="dark"]
+   (чтобы явный выбор побеждал систему в обе стороны).
+   Ни один цвет не определяется впервые внутри @media или [data-theme].
+   ═════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  color-scheme: light;
+
+  /* ── Поверхности ── */
+  --bg: #FBFAF9;          /* тёплая бумага, не голубоватый лёд дашбордов */
+  --surface: #FFFFFF;
+  --surface-2: #F5F3F1;   /* ховер строки, шапка таблицы, вложенный блок */
+  --surface-3: #EDE9E5;   /* нажатое состояние, скелетон */
+  --line: #E4E0DB;        /* хайрлайн — основной разделитель вместо теней */
+  --line-soft: #EFECE8;
+
+  /* ── Текст ── */
+  --ink: #1A1815;         /* тёплый почти-чёрный */
+  --ink-2: #57534E;
+  --ink-3: #7A756F;       /* подписи, плейсхолдеры — 4.6:1 на surface */
+  --on-accent: #FFFFFF;
+
+  /* ── Акцент: только primary-кнопка, активная навигация, фокус, выделение ── */
+  --accent: #2F5D50;
+  --accent-hi: #3C7263;
+  --accent-soft: #E9F0ED;
+  --accent-line: #C4D6CF;
+
+  /* ── Семантика: насыщенный цвет только у состояний, требующих действия ── */
+  --ok: #1E7F55;
+  --ok-soft: #E4F1EA;
+  --warn: #B45309;
+  --warn-soft: #FAF0E3;
+  --danger: #B3261E;
+  --danger-soft: #FBE9E7;
+
+  /* ── Тени: только у плавающих слоёв ── */
+  --shadow-pop: 0 1px 2px rgba(26, 24, 21, .06), 0 10px 30px rgba(26, 24, 21, .12);
+  --shadow-toast: 0 2px 4px rgba(26, 24, 21, .08), 0 12px 32px rgba(26, 24, 21, .16);
+  --scrim: rgba(26, 24, 21, .38);
+
+  /* ── Типографика ── */
+  --font-ui: "Golos Text Variable", "Golos Text", ui-sans-serif, system-ui,
+             -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", "Cascadia Mono",
+               "Roboto Mono", monospace;
+  --fs-11: 11px;   /* шапки таблиц, микроподписи */
+  --fs-12: 12px;   /* вторичное */
+  --fs-13: 13px;   /* таблицы */
+  --fs-14: 14px;   /* база */
+  --fs-16: 16px;   /* заголовок секции */
+  --fs-22: 22px;   /* заголовок страницы, крупные числа */
+
+  /* ── Ритм ── */
+  --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px; --sp-4: 16px;
+  --sp-5: 20px; --sp-6: 28px; --sp-7: 40px; --sp-8: 56px;
+  --radius-sm: 4px;
+  --radius: 6px;
+  --radius-lg: 10px;
+  --row-h: 34px;
+  --sidebar-w: 236px;
+  --topbar-h: 48px;
+  --content-max: 1180px;
+
+  /* ── Движение ── */
+  --dur-fast: 90ms;
+  --dur: 140ms;
+  --ease: cubic-bezier(.2, 0, .2, 1);
+}
+
+/* Системная тёмная — только если пользователь не выбрал светлую явно */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+
+    --bg: #141312;
+    --surface: #1B1A18;
+    --surface-2: #232120;
+    --surface-3: #2C2926;
+    --line: #302D2A;
+    --line-soft: #262421;
+
+    --ink: #EDEAE6;
+    --ink-2: #A8A29C;
+    --ink-3: #8B857E;
+    --on-accent: #10201B;
+
+    --accent: #4FA68F;
+    --accent-hi: #63BCA4;
+    --accent-soft: #1D2C28;
+    --accent-line: #2F4A42;
+
+    --ok: #4CAF83;
+    --ok-soft: #17281F;
+    --warn: #D9883A;
+    --warn-soft: #2A2018;
+    --danger: #E0655B;
+    --danger-soft: #2C1B19;
+
+    --shadow-pop: 0 1px 2px rgba(0, 0, 0, .4), 0 10px 30px rgba(0, 0, 0, .5);
+    --shadow-toast: 0 2px 4px rgba(0, 0, 0, .4), 0 12px 32px rgba(0, 0, 0, .55);
+    --scrim: rgba(8, 7, 7, .62);
+  }
+}
+
+/* Явный выбор темы — побеждает систему */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg: #141312;
+  --surface: #1B1A18;
+  --surface-2: #232120;
+  --surface-3: #2C2926;
+  --line: #302D2A;
+  --line-soft: #262421;
+
+  --ink: #EDEAE6;
+  --ink-2: #A8A29C;
+  --ink-3: #8B857E;
+  --on-accent: #10201B;
+
+  --accent: #4FA68F;
+  --accent-hi: #63BCA4;
+  --accent-soft: #1D2C28;
+  --accent-line: #2F4A42;
+
+  --ok: #4CAF83;
+  --ok-soft: #17281F;
+  --warn: #D9883A;
+  --warn-soft: #2A2018;
+  --danger: #E0655B;
+  --danger-soft: #2C1B19;
+
+  --shadow-pop: 0 1px 2px rgba(0, 0, 0, .4), 0 10px 30px rgba(0, 0, 0, .5);
+  --shadow-toast: 0 2px 4px rgba(0, 0, 0, .4), 0 12px 32px rgba(0, 0, 0, .55);
+  --scrim: rgba(8, 7, 7, .62);
+}

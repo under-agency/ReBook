@@ -3,19 +3,21 @@ import { useState } from "react";
 import { api, errorText } from "../../api/client";
 import { useAuth } from "../../auth/AuthContext";
 import { HoursEditor, ServicesEditor, StaffEditor, TextsEditor } from "../../components/editors";
-import { Field, Spinner, Tabs } from "../../components/ui";
+import { useToast } from "../../components/toast";
+import { Button, Field, LoadError, Skeleton, Tabs } from "../../components/ui";
 
 function ParamsEditor({ settings }: { settings: any }) {
   const qc = useQueryClient();
+  const toast = useToast();
   // форма инициализируется один раз; пересоздание — через key у родителя
   const [name, setName] = useState(settings.name ?? "");
   const [avgCheck, setAvgCheck] = useState(String(settings.avg_check ?? ""));
   const [off1, setOff1] = useState(settings.remind_offsets_h?.[0] ?? 24);
   const [off2, setOff2] = useState(settings.remind_offsets_h?.[1] ?? 3);
-  const [msg, setMsg] = useState("");
+  const [busy, setBusy] = useState(false);
 
   const save = async () => {
-    setMsg("");
+    setBusy(true);
     try {
       await api("/api/settings", {
         method: "PATCH",
@@ -26,18 +28,20 @@ function ParamsEditor({ settings }: { settings: any }) {
         },
       });
       qc.invalidateQueries({ queryKey: ["settings"] });
-      setMsg("Сохранено ✓");
+      toast.ok("Параметры сохранены");
     } catch (e) {
-      setMsg(errorText(e));
+      toast.error(errorText(e));
+    } finally {
+      setBusy(false);
     }
   };
 
   return (
-    <div style={{ maxWidth: 480 }}>
+    <div className="narrow">
       <Field label="Название салона">
         <input value={name} onChange={(e) => setName(e.target.value)} />
       </Field>
-      <Field label="Средний чек, ₽ (для расчёта «возвращено N ₽»)">
+      <Field label="Средний чек, ₽ — из него считается «возвращено ≈ N ₽»">
         <input type="number" value={avgCheck} onChange={(e) => setAvgCheck(e.target.value)} />
       </Field>
       <div className="form-row">
@@ -48,11 +52,12 @@ function ParamsEditor({ settings }: { settings: any }) {
           <input type="number" value={off2} onChange={(e) => setOff2(Number(e.target.value))} />
         </Field>
       </div>
-      <Field label="Лимит SMS в месяц (меняется через поддержку)">
+      <Field label="Лимит SMS в месяц — меняется через поддержку">
         <input value={settings.sms_limit_month} disabled />
       </Field>
-      {msg && <div className={msg.includes("✓") ? "hint" : "error-text"}>{msg}</div>}
-      <button className="btn-primary" onClick={save}>Сохранить</button>
+      <Button variant="primary" disabled={busy} onClick={save}>
+        {busy ? "Сохраняем…" : "Сохранить"}
+      </Button>
     </div>
   );
 }
@@ -60,25 +65,37 @@ function ParamsEditor({ settings }: { settings: any }) {
 export default function SettingsPage() {
   const [tab, setTab] = useState("services");
   const qc = useQueryClient();
+  const toast = useToast();
   const { me } = useAuth();
-  const settings = useQuery({ queryKey: ["settings"], queryFn: () => api("/api/settings") });
+  const settings = useQuery({ queryKey: ["settings"], queryFn: () => api<any>("/api/settings") });
 
-  if (settings.isLoading) return <Spinner />;
+  if (settings.isError) return <LoadError onRetry={() => settings.refetch()} />;
+  if (settings.isLoading || !settings.data) {
+    return (
+      <div className="stack">
+        <Skeleton w="40%" h={16} /><Skeleton w="100%" h={30} /><Skeleton w="100%" h={30} />
+      </div>
+    );
+  }
+
   const s = settings.data;
   const salonKey = me?.salon?.id ?? 0;
 
-  const saveHours = async (work_hours: any) => {
-    await api("/api/settings", { method: "PATCH", body: { work_hours } });
-    qc.invalidateQueries({ queryKey: ["settings"] });
+  const patch = (body: any, done: string) => async () => {
+    try {
+      await api("/api/settings", { method: "PATCH", body });
+      qc.invalidateQueries({ queryKey: ["settings"] });
+      toast.ok(done);
+    } catch (e) {
+      toast.error(errorText(e));
+    }
   };
-  const saveTexts = async (texts: any) => {
-    await api("/api/settings", { method: "PATCH", body: { texts } });
-    qc.invalidateQueries({ queryKey: ["settings"] });
-  };
+
+  const saveHours = (work_hours: any) => patch({ work_hours }, "Часы работы сохранены")();
+  const saveTexts = (texts: any) => patch({ texts }, "Тексты сообщений сохранены")();
 
   return (
     <>
-      <div className="page-head"><h1>Настройки</h1></div>
       <Tabs active={tab} onChange={setTab} tabs={[
         ["services", "Услуги"], ["staff", "Мастера"], ["hours", "Часы работы"],
         ["texts", "Тексты"], ["params", "Параметры"],

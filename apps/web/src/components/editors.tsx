@@ -1,20 +1,25 @@
 /* Редакторы настроек: используются и в «Настройках», и в онбординг-мастере. */
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { Plus } from "lucide-react";
 import { api, errorText } from "../api/client";
-import { Empty, Field, Modal, Spinner, money } from "./ui";
+import { useToast } from "./toast";
+import { Button, Empty, Field, Modal, Skeleton, TableSkeleton, money } from "./ui";
 
 /* ── Услуги ──────────────────────────────────────────────────────────── */
 function ServiceForm({ initial, onDone }: { initial?: any; onDone: () => void }) {
   const qc = useQueryClient();
+  const toast = useToast();
   const [name, setName] = useState(initial?.name ?? "");
   const [price, setPrice] = useState(initial?.price ?? "");
   const [duration, setDuration] = useState(initial?.duration_min ?? 60);
   const [cycle, setCycle] = useState(initial?.repeat_cycle_days ?? "");
   const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
 
   const save = async () => {
     setError("");
+    setBusy(true);
     try {
       const body = {
         name, price: Number(price), duration_min: Number(duration),
@@ -26,70 +31,103 @@ function ServiceForm({ initial, onDone }: { initial?: any; onDone: () => void })
         await api("/api/settings/services", { method: "POST", body });
       }
       qc.invalidateQueries({ queryKey: ["services"] });
+      toast.ok(initial?.id ? "Услуга обновлена" : "Услуга добавлена");
       onDone();
     } catch (e) {
       setError(errorText(e));
+    } finally {
+      setBusy(false);
     }
   };
 
   return (
     <>
-      <Field label="Название"><input value={name} onChange={(e) => setName(e.target.value)} /></Field>
+      <Field label="Название">
+        <input value={name} onChange={(e) => setName(e.target.value)} />
+      </Field>
       <div className="form-row">
         <Field label="Цена, ₽">
-          <input type="number" value={price} onChange={(e) => setPrice(e.target.value)} /></Field>
+          <input type="number" value={price} onChange={(e) => setPrice(e.target.value)} />
+        </Field>
         <Field label="Длительность, мин">
-          <input type="number" value={duration} onChange={(e) => setDuration(e.target.value)} /></Field>
+          <input type="number" value={duration} onChange={(e) => setDuration(e.target.value)} />
+        </Field>
         <Field label="Цикл повтора, дней">
           <input type="number" value={cycle} placeholder="пусто = без реактивации"
-                 onChange={(e) => setCycle(e.target.value)} /></Field>
+                 onChange={(e) => setCycle(e.target.value)} />
+        </Field>
       </div>
+      <p className="hint mb-3">
+        Цикл повтора — через сколько дней услугу обычно повторяют. По нему бот находит
+        «спящих» клиентов.
+      </p>
       {error && <div className="error-text">{error}</div>}
-      <button className="btn-primary" onClick={save} disabled={!name || !price}>Сохранить</button>
+      <Button variant="primary" onClick={save} disabled={busy || !name || !price}>
+        {busy ? "Сохраняем…" : "Сохранить"}
+      </Button>
     </>
   );
 }
 
 export function ServicesEditor() {
-  const services = useQuery({ queryKey: ["services"], queryFn: () => api("/api/settings/services") });
+  const services = useQuery({
+    queryKey: ["services"],
+    queryFn: () => api<any>("/api/settings/services"),
+  });
   const qc = useQueryClient();
+  const toast = useToast();
   const [editing, setEditing] = useState<any | null>(null);
   const [adding, setAdding] = useState(false);
 
-  const deactivate = async (id: number) => {
-    await api(`/api/settings/services/${id}`, { method: "DELETE" });
-    qc.invalidateQueries({ queryKey: ["services"] });
+  const deactivate = async (s: any) => {
+    if (!window.confirm(`Скрыть услугу «${s.name}»? Прошлые записи останутся на месте.`)) return;
+    try {
+      await api(`/api/settings/services/${s.id}`, { method: "DELETE" });
+      qc.invalidateQueries({ queryKey: ["services"] });
+      toast.ok(`Услуга «${s.name}» скрыта`);
+    } catch (e) {
+      toast.error(errorText(e));
+    }
   };
 
-  if (services.isLoading) return <Spinner />;
+  if (services.isLoading) return <TableSkeleton rows={4} cols={4} />;
   const items = services.data?.items ?? [];
+
   return (
     <>
-      <div className="table-wrap" style={{ marginBottom: 12 }}>
+      <div className="table-wrap mb-3">
         <table>
-          <thead><tr><th>Услуга</th><th>Цена</th><th>Длительность</th><th>Цикл</th><th /></tr></thead>
+          <thead>
+            <tr><th>Услуга</th><th className="t-num">Цена</th>
+                <th className="t-num">Длительность</th><th>Цикл повтора</th><th /></tr>
+          </thead>
           <tbody>
             {items.map((s: any) => (
-              <tr key={s.id} style={s.is_active ? undefined : { opacity: 0.45 }}>
-                <td><b>{s.name}</b></td>
-                <td>{money(s.price)}</td>
-                <td>{s.duration_min} мин</td>
-                <td>{s.repeat_cycle_days ? `${s.repeat_cycle_days} дн.` : "—"}</td>
-                <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
-                  <button className="btn-sm" onClick={() => setEditing(s)}>Изменить</button>{" "}
-                  {s.is_active && (
-                    <button className="btn-sm btn-danger" onClick={() => deactivate(s.id)}>
-                      Скрыть
-                    </button>
-                  )}
+              <tr key={s.id} className={s.is_active ? undefined : "dim"}>
+                <td className="strong">{s.name}</td>
+                <td className="t-num">{money(s.price)}</td>
+                <td className="t-num">{s.duration_min} мин</td>
+                <td className="muted">
+                  {s.repeat_cycle_days ? `${s.repeat_cycle_days} дн.` : "—"}
+                </td>
+                <td>
+                  <div className="row push nowrap" style={{ justifyContent: "flex-end" }}>
+                    <Button size="sm" onClick={() => setEditing(s)}>Изменить</Button>
+                    {s.is_active && (
+                      <Button size="sm" variant="danger" onClick={() => deactivate(s)}>Скрыть</Button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
-        {!items.length && <Empty text="Добавьте первую услугу" />}
+        {!items.length && (
+          <Empty text="Услуг пока нет"
+                 hint="Без услуг бот не сможет записывать — добавьте хотя бы одну." />
+        )}
       </div>
-      <button onClick={() => setAdding(true)}>+ Добавить услугу</button>
+      <Button onClick={() => setAdding(true)}><Plus size={14} /> Добавить услугу</Button>
       {(adding || editing) && (
         <Modal title={editing ? "Услуга" : "Новая услуга"}
                onClose={() => { setAdding(false); setEditing(null); }}>
@@ -103,49 +141,70 @@ export function ServicesEditor() {
 
 /* ── Мастера ─────────────────────────────────────────────────────────── */
 export function StaffEditor() {
-  const staff = useQuery({ queryKey: ["staff"], queryFn: () => api("/api/settings/staff") });
+  const staff = useQuery({ queryKey: ["staff"], queryFn: () => api<any>("/api/settings/staff") });
   const qc = useQueryClient();
+  const toast = useToast();
   const [name, setName] = useState("");
+  const [busy, setBusy] = useState(false);
 
   const add = async () => {
-    await api("/api/settings/staff", { method: "POST", body: { name } });
-    setName("");
-    qc.invalidateQueries({ queryKey: ["staff"] });
-  };
-  const deactivate = async (id: number) => {
-    await api(`/api/settings/staff/${id}`, { method: "DELETE" });
-    qc.invalidateQueries({ queryKey: ["staff"] });
+    setBusy(true);
+    try {
+      await api("/api/settings/staff", { method: "POST", body: { name } });
+      setName("");
+      qc.invalidateQueries({ queryKey: ["staff"] });
+      toast.ok("Мастер добавлен");
+    } catch (e) {
+      toast.error(errorText(e));
+    } finally {
+      setBusy(false);
+    }
   };
 
-  if (staff.isLoading) return <Spinner />;
+  const deactivate = async (s: any) => {
+    if (!window.confirm(`Скрыть мастера «${s.name}»? Прошлые записи останутся на месте.`)) return;
+    try {
+      await api(`/api/settings/staff/${s.id}`, { method: "DELETE" });
+      qc.invalidateQueries({ queryKey: ["staff"] });
+      toast.ok(`Мастер «${s.name}» скрыт`);
+    } catch (e) {
+      toast.error(errorText(e));
+    }
+  };
+
+  if (staff.isLoading) return <TableSkeleton rows={3} cols={2} />;
   const items = staff.data?.items ?? [];
+
   return (
     <>
-      <div className="table-wrap" style={{ marginBottom: 12 }}>
+      <div className="table-wrap mb-3">
         <table>
           <tbody>
             {items.map((s: any) => (
-              <tr key={s.id} style={s.is_active ? undefined : { opacity: 0.45 }}>
-                <td><b>{s.name}</b></td>
-                <td style={{ textAlign: "right" }}>
-                  {s.is_active && (
-                    <button className="btn-sm btn-danger" onClick={() => deactivate(s.id)}>
-                      Скрыть
-                    </button>
-                  )}
+              <tr key={s.id} className={s.is_active ? undefined : "dim"}>
+                <td className="strong">{s.name}</td>
+                <td>
+                  <div className="row nowrap" style={{ justifyContent: "flex-end" }}>
+                    {s.is_active && (
+                      <Button size="sm" variant="danger" onClick={() => deactivate(s)}>Скрыть</Button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
-        {!items.length && <Empty text="Добавьте мастеров" />}
+        {!items.length && (
+          <Empty text="Мастеров пока нет"
+                 hint="Если мастеров нет, бот будет записывать «к любому»." />
+        )}
       </div>
-      <div className="form-row" style={{ maxWidth: 380 }}>
-        <input placeholder="Имя мастера" value={name} onChange={(e) => setName(e.target.value)} />
-        <button className="btn-primary" style={{ flex: "0 0 auto" }} disabled={!name} onClick={add}>
-          Добавить
-        </button>
-      </div>
+      <form className="row narrow"
+            onSubmit={(e) => { e.preventDefault(); if (name) add(); }}>
+        <input placeholder="Имя мастера" value={name} aria-label="Имя мастера"
+               onChange={(e) => setName(e.target.value)} />
+        <Button type="submit" variant="primary" disabled={busy || !name}>Добавить</Button>
+      </form>
     </>
   );
 }
@@ -189,27 +248,33 @@ export function HoursEditor({
 
   return (
     <>
-      {DAY_LABELS.map(([key, label]) => (
-        <div key={key} style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 8 }}>
-          <label style={{ width: 130, display: "flex", gap: 6, alignItems: "center" }}>
-            <input type="checkbox" style={{ width: "auto" }} checked={hours[key] != null}
-                   onChange={(e) => setHours((h) => ({ ...h, [key]: e.target.checked ? ["10:00", "20:00"] : null }))} />
-            {label}
-          </label>
-          {hours[key] ? (
-            <>
-              <input type="time" style={{ width: 110 }} value={hours[key]![0]}
-                     onChange={(e) => set(key, 0, e.target.value)} />
-              <span>—</span>
-              <input type="time" style={{ width: 110 }} value={hours[key]![1]}
-                     onChange={(e) => set(key, 1, e.target.value)} />
-            </>
-          ) : <span className="hint">выходной</span>}
-        </div>
-      ))}
-      <button className="btn-primary" style={{ marginTop: 8 }} disabled={busy} onClick={save}>
-        Сохранить часы
-      </button>
+      <div className="stack mb-4" style={{ gap: "var(--sp-2)" }}>
+        {DAY_LABELS.map(([key, label]) => (
+          <div className="row" key={key}>
+            <label className="row" style={{ width: 150 }}>
+              <input type="checkbox" checked={hours[key] != null}
+                     onChange={(e) => setHours((h) => ({
+                       ...h, [key]: e.target.checked ? ["10:00", "20:00"] : null,
+                     }))} />
+              {label}
+            </label>
+            {hours[key] ? (
+              <>
+                <input type="time" style={{ width: 110 }} value={hours[key]![0]}
+                       aria-label={`${label}: начало`}
+                       onChange={(e) => set(key, 0, e.target.value)} />
+                <span className="dim">—</span>
+                <input type="time" style={{ width: 110 }} value={hours[key]![1]}
+                       aria-label={`${label}: конец`}
+                       onChange={(e) => set(key, 1, e.target.value)} />
+              </>
+            ) : <span className="hint">выходной</span>}
+          </div>
+        ))}
+      </div>
+      <Button variant="primary" disabled={busy} onClick={save}>
+        {busy ? "Сохраняем…" : "Сохранить часы"}
+      </Button>
     </>
   );
 }
@@ -218,7 +283,7 @@ export function HoursEditor({
 const TEXT_LABELS: [string, string][] = [
   ["reminder_24h", "Напоминание за 24 часа"],
   ["reminder_3h", "Напоминание за 3 часа"],
-  ["sms_chase", "SMS-догон (если не подтвердил)"],
+  ["sms_chase", "SMS-догон, если не подтвердил"],
   ["confirm", "Подтверждение записи"],
   ["reactivation", "Реактивация «спящего» клиента"],
 ];
@@ -231,8 +296,8 @@ export function TextsEditor({
 
   return (
     <>
-      <p className="hint" style={{ marginBottom: 12 }}>
-        Подстановки: {"{имя} {дата} {время} {услуга} {мастер} {салон}"}
+      <p className="hint mb-3">
+        Подстановки: <span className="mono">{"{имя} {дата} {время} {услуга} {мастер} {салон}"}</span>
       </p>
       {TEXT_LABELS.map(([key, label]) => (
         <Field key={key} label={label}>
@@ -240,10 +305,19 @@ export function TextsEditor({
                     onChange={(e) => setTexts((t) => ({ ...t, [key]: e.target.value }))} />
         </Field>
       ))}
-      <button className="btn-primary" disabled={busy}
+      <Button variant="primary" disabled={busy}
               onClick={async () => { setBusy(true); await onSave(texts); setBusy(false); }}>
-        Сохранить тексты
-      </button>
+        {busy ? "Сохраняем…" : "Сохранить тексты"}
+      </Button>
     </>
+  );
+}
+
+/** Заглушка для мест, где ещё нужен простой каркас загрузки. */
+export function EditorSkeleton() {
+  return (
+    <div className="stack">
+      <Skeleton w="40%" h={14} /><Skeleton w="100%" h={30} /><Skeleton w="100%" h={30} />
+    </div>
   );
 }

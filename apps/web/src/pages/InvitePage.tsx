@@ -2,7 +2,7 @@ import { FormEvent, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api, errorText } from "../api/client";
 import { Me, useAuth } from "../auth/AuthContext";
-import { Field } from "../components/ui";
+import { Button, Field } from "../components/ui";
 
 export default function InvitePage() {
   const { token } = useParams();
@@ -38,9 +38,9 @@ export default function InvitePage() {
   return (
     <div className="auth-page">
       <form className="auth-card" onSubmit={submit}>
-        <div className="logo">Re<span style={{ color: "var(--accent)" }}>Book</span></div>
-        <p style={{ marginBottom: 16, color: "var(--muted)" }}>
-          Добро пожаловать! Придумайте пароль для входа в кабинет.
+        <div className="logo">Re<span>Book</span></div>
+        <p className="muted mb-4">
+          Придумайте пароль — он понадобится для входа в кабинет.
         </p>
         <Field label="Пароль (от 8 символов)">
           <input type="password" value={password} minLength={8}
@@ -51,9 +51,9 @@ export default function InvitePage() {
                  onChange={(e) => setPassword2(e.target.value)} required />
         </Field>
         {error && <div className="error-text">{error}</div>}
-        <button className="btn-primary" style={{ width: "100%" }} disabled={busy}>
+        <Button type="submit" variant="primary" className="btn-block" disabled={busy}>
           {busy ? "Сохраняем…" : "Задать пароль и войти"}
-        </button>
+        </Button>
       </form>
     </div>
   );

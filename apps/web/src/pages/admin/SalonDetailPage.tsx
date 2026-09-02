@@ -2,9 +2,15 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { Copy, Link2, Wrench } from "lucide-react";
 import { api, errorText } from "../../api/client";
 import { useAuth } from "../../auth/AuthContext";
-import { Badge, Empty, Field, Spinner, Tabs, money } from "../../components/ui";
+import AuditTable, { type AuditRow } from "../../components/AuditTable";
+import { PageActions } from "../../components/Layout";
+import { useToast } from "../../components/toast";
+import {
+  Button, Empty, Field, LoadError, Status, TableSkeleton, Tabs, money,
+} from "../../components/ui";
 import { SALON_STATUS_LABELS } from "./SalonsListPage";
 
 const FLAG_LABELS: Record<string, string> = {
@@ -13,6 +19,7 @@ const FLAG_LABELS: Record<string, string> = {
 };
 
 function Overview({ salon, onSaved }: { salon: any; onSaved: () => void }) {
+  const toast = useToast();
   // форма пересоздаётся через key={salon.id} при переходе к другому салону
   const [form, setForm] = useState<any>(() => ({
     name: salon.name, status: salon.status,
@@ -21,10 +28,10 @@ function Overview({ salon, onSaved }: { salon: any; onSaved: () => void }) {
     next_payment_at: salon.next_payment_at ?? "",
     tg_bot_token: "",
   }));
-  const [msg, setMsg] = useState("");
+  const [busy, setBusy] = useState(false);
 
   const save = async () => {
-    setMsg("");
+    setBusy(true);
     try {
       const body: any = {
         name: form.name, status: form.status,
@@ -36,16 +43,18 @@ function Overview({ salon, onSaved }: { salon: any; onSaved: () => void }) {
       if (form.tg_bot_token) body.tg_bot_token = form.tg_bot_token;
       await api(`/api/admin/salons/${salon.id}`, { method: "PATCH", body });
       onSaved();
-      setMsg("Сохранено ✓");
+      toast.ok("Салон сохранён");
     } catch (e) {
-      setMsg(errorText(e));
+      toast.error(errorText(e));
+    } finally {
+      setBusy(false);
     }
   };
 
   const set = (k: string) => (e: any) => setForm({ ...form, [k]: e.target.value });
 
   return (
-    <div style={{ maxWidth: 520 }}>
+    <div className="narrow">
       <Field label="Название"><input value={form.name ?? ""} onChange={set("name")} /></Field>
       <div className="form-row">
         <Field label="Статус">
@@ -60,7 +69,7 @@ function Overview({ salon, onSaved }: { salon: any; onSaved: () => void }) {
         </Field>
       </div>
       <div className="form-row">
-        <Field label="Лимит SMS/мес">
+        <Field label="Лимит SMS в месяц">
           <input type="number" value={form.sms_limit_month ?? ""} onChange={set("sms_limit_month")} />
         </Field>
         <Field label="Абонентка, ₽/мес">
@@ -70,17 +79,21 @@ function Overview({ salon, onSaved }: { salon: any; onSaved: () => void }) {
           <input type="date" value={form.next_payment_at ?? ""} onChange={set("next_payment_at")} />
         </Field>
       </div>
-      <Field label={"Токен TG-бота " + (salon.has_tg_bot ? "(задан — ввод заменит)" : "(не задан)")}>
+      <Field label={"Токен Telegram-бота — " +
+                    (salon.has_tg_bot ? "задан, ввод заменит" : "не задан")}>
         <input value={form.tg_bot_token ?? ""} onChange={set("tg_bot_token")}
                placeholder="оставьте пустым, чтобы не менять" />
       </Field>
-      {msg && <div className={msg.includes("✓") ? "hint" : "error-text"}>{msg}</div>}
-      <button className="btn-primary" onClick={save}>Сохранить</button>
+      <Button variant="primary" disabled={busy} onClick={save}>
+        {busy ? "Сохраняем…" : "Сохранить"}
+      </Button>
 
-      <h3 style={{ margin: "18px 0 8px" }}>Пользователи</h3>
+      <h3 className="mt-4 mb-2">Пользователи</h3>
       {(salon.users ?? []).map((u: any) => (
-        <div key={u.id} className="hint">
-          {u.email} — {u.role}{u.invited ? " · приглашение не принято" : ""}
+        <div key={u.id} className="row">
+          <span className="mono">{u.email}</span>
+          <span className="dim">{u.role}</span>
+          {u.invited && <span style={{ color: "var(--warn)" }}>приглашение не принято</span>}
         </div>
       ))}
     </div>
@@ -88,55 +101,73 @@ function Overview({ salon, onSaved }: { salon: any; onSaved: () => void }) {
 }
 
 function Billing({ salon, onSaved }: { salon: any; onSaved: () => void }) {
+  const toast = useToast();
   const [amount, setAmount] = useState(salon.monthly_fee ?? "");
   const [start, setStart] = useState(dayjs().startOf("month").format("YYYY-MM-DD"));
   const [end, setEnd] = useState(dayjs().endOf("month").format("YYYY-MM-DD"));
   const [paidAt, setPaidAt] = useState(dayjs().format("YYYY-MM-DD"));
-  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
 
   const add = async () => {
-    setError("");
+    setBusy(true);
     try {
       await api(`/api/admin/salons/${salon.id}/payments`, {
         method: "POST",
-        body: { amount: Number(amount), period_start: start, period_end: end,
-                paid_at: paidAt || null },
+        body: {
+          amount: Number(amount), period_start: start, period_end: end,
+          paid_at: paidAt || null,
+        },
       });
       onSaved();
+      toast.ok(`Оплата ${money(Number(amount))} зафиксирована`);
     } catch (e) {
-      setError(errorText(e));
+      toast.error(errorText(e));
+    } finally {
+      setBusy(false);
     }
   };
 
   return (
     <>
-      <div className="card" style={{ maxWidth: 640 }}>
-        <h3 style={{ marginBottom: 10 }}>Зафиксировать оплату</h3>
+      <div className="card">
+        <h3 className="mb-3">Зафиксировать оплату</h3>
         <div className="form-row">
-          <Field label="Сумма, ₽"><input type="number" value={amount}
-                 onChange={(e) => setAmount(e.target.value)} /></Field>
-          <Field label="Период с"><input type="date" value={start}
-                 onChange={(e) => setStart(e.target.value)} /></Field>
-          <Field label="по"><input type="date" value={end}
-                 onChange={(e) => setEnd(e.target.value)} /></Field>
-          <Field label="Оплачено"><input type="date" value={paidAt}
-                 onChange={(e) => setPaidAt(e.target.value)} /></Field>
+          <Field label="Сумма, ₽">
+            <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} />
+          </Field>
+          <Field label="Период с">
+            <input type="date" value={start} onChange={(e) => setStart(e.target.value)} />
+          </Field>
+          <Field label="по">
+            <input type="date" value={end} onChange={(e) => setEnd(e.target.value)} />
+          </Field>
+          <Field label="Оплачено">
+            <input type="date" value={paidAt} onChange={(e) => setPaidAt(e.target.value)} />
+          </Field>
         </div>
-        {error && <div className="error-text">{error}</div>}
-        <button className="btn-primary" onClick={add} disabled={!amount}>Добавить</button>
-        <p className="hint" style={{ marginTop: 8 }}>
-          Оплата сдвигает дату следующего платежа и снимает grace/paused.
+        <Button variant="primary" onClick={add} disabled={busy || !amount}>Добавить</Button>
+        <p className="hint mt-2">
+          Оплата сдвигает дату следующего платежа и снимает статусы «просрочка» и
+          «приостановлен».
         </p>
       </div>
       <div className="table-wrap">
         <table>
-          <thead><tr><th>Период</th><th>Сумма</th><th>Оплачено</th><th>Заметка</th></tr></thead>
+          <thead>
+            <tr><th>Период</th><th className="t-num">Сумма</th><th>Оплачено</th><th>Заметка</th></tr>
+          </thead>
           <tbody>
             {(salon.payments ?? []).map((p: any) => (
               <tr key={p.id}>
-                <td>{dayjs(p.period_start).format("D MMM")} — {dayjs(p.period_end).format("D MMM YYYY")}</td>
-                <td>{money(p.amount)}</td>
-                <td>{p.paid_at ? dayjs(p.paid_at).format("D MMM YYYY") : <Badge value="failed" label="не оплачено" />}</td>
+                <td className="t-time nowrap">
+                  {dayjs(p.period_start).format("D MMM")} — {dayjs(p.period_end).format("D MMM YYYY")}
+                </td>
+                <td className="t-num">{money(p.amount)}</td>
+                <td>
+                  {p.paid_at
+                    ? <span className="t-time">{dayjs(p.paid_at).format("D MMM YYYY")}</span>
+                    : <Status value="failed" label="не оплачено" />}
+                </td>
                 <td className="hint">{p.note ?? ""}</td>
               </tr>
             ))}
@@ -149,27 +180,39 @@ function Billing({ salon, onSaved }: { salon: any; onSaved: () => void }) {
 }
 
 function Flags({ salon, onSaved }: { salon: any; onSaved: () => void }) {
+  const toast = useToast();
   const [flags, setFlags] = useState<Record<string, boolean>>(
     () => ({ ...(salon.feature_flags ?? {}) }));
+  const [busy, setBusy] = useState(false);
 
   const save = async () => {
-    await api(`/api/admin/salons/${salon.id}`, {
-      method: "PATCH", body: { feature_flags: flags },
-    });
-    onSaved();
+    setBusy(true);
+    try {
+      await api(`/api/admin/salons/${salon.id}`, {
+        method: "PATCH", body: { feature_flags: flags },
+      });
+      onSaved();
+      toast.ok("Флаги сохранены");
+    } catch (e) {
+      toast.error(errorText(e));
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
-    <div style={{ maxWidth: 420 }}>
-      {Object.entries(FLAG_LABELS).map(([key, label]) => (
-        <label key={key} style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10 }}>
-          <input type="checkbox" style={{ width: "auto" }} checked={Boolean(flags[key])}
-                 onChange={(e) => setFlags({ ...flags, [key]: e.target.checked })} />
-          {label}
-        </label>
-      ))}
-      <button className="btn-primary" onClick={save}>Сохранить флаги</button>
-      <p className="hint" style={{ marginTop: 8 }}>
+    <div className="narrow">
+      <div className="stack mb-4" style={{ gap: "var(--sp-2)" }}>
+        {Object.entries(FLAG_LABELS).map(([key, label]) => (
+          <label key={key} className="row">
+            <input type="checkbox" checked={Boolean(flags[key])}
+                   onChange={(e) => setFlags({ ...flags, [key]: e.target.checked })} />
+            {label}
+          </label>
+        ))}
+      </div>
+      <Button variant="primary" disabled={busy} onClick={save}>Сохранить флаги</Button>
+      <p className="hint mt-2">
         Флаги нужны, чтобы продавать пакеты и выкатывать новое на одном салоне.
       </p>
     </div>
@@ -179,32 +222,13 @@ function Flags({ salon, onSaved }: { salon: any; onSaved: () => void }) {
 function SalonAudit({ salonId }: { salonId: number }) {
   const audit = useQuery({
     queryKey: ["salon-audit", salonId],
-    queryFn: () => api(`/api/admin/audit?salon_id=${salonId}&page_size=100`),
+    queryFn: () => api<{ items: AuditRow[] }>(
+      `/api/admin/audit?salon_id=${salonId}&page_size=100`,
+    ),
   });
-  if (audit.isLoading) return <Spinner />;
-  const items = audit.data?.items ?? [];
-  return (
-    <div className="table-wrap">
-      <table>
-        <thead><tr><th>Когда</th><th>Кто</th><th>Действие</th><th>Объект</th><th /></tr></thead>
-        <tbody>
-          {items.map((a: any) => (
-            <tr key={a.id}>
-              <td>{dayjs(a.created_at).format("D MMM HH:mm")}</td>
-              <td>{a.user_email ?? "система"}</td>
-              <td>{a.action}{a.is_support && <> <Badge value="stub" label="поддержка" /></>}</td>
-              <td>{a.entity}{a.entity_id ? ` #${a.entity_id}` : ""}</td>
-              <td className="hint" style={{ maxWidth: 300, overflow: "hidden",
-                    textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {a.after ? JSON.stringify(a.after) : ""}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      {!items.length && <Empty />}
-    </div>
-  );
+  if (audit.isError) return <LoadError onRetry={() => audit.refetch()} />;
+  if (audit.isLoading) return <TableSkeleton rows={6} cols={5} />;
+  return <AuditTable rows={audit.data?.items ?? []} />;
 }
 
 export default function SalonDetailPage() {
@@ -212,12 +236,14 @@ export default function SalonDetailPage() {
   const salonId = Number(id);
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const toast = useToast();
   const { refresh } = useAuth();
   const [tab, setTab] = useState("overview");
   const [inviteLink, setInviteLink] = useState("");
+
   const salon = useQuery({
     queryKey: ["salon", salonId],
-    queryFn: () => api(`/api/admin/salons/${salonId}`),
+    queryFn: () => api<any>(`/api/admin/salons/${salonId}`),
   });
 
   const onSaved = () => {
@@ -226,36 +252,67 @@ export default function SalonDetailPage() {
   };
 
   const impersonate = async () => {
-    await api(`/api/admin/salons/${salonId}/impersonate`, { method: "POST" });
-    await refresh();
-    navigate("/");
+    try {
+      await api(`/api/admin/salons/${salonId}/impersonate`, { method: "POST" });
+      await refresh();
+      navigate("/");
+    } catch (e) {
+      toast.error(errorText(e));
+    }
   };
 
   const reinvite = async () => {
-    const r = await api(`/api/admin/salons/${salonId}/invite`, { method: "POST" });
-    setInviteLink(`${window.location.origin}${r.invite_link}`);
+    try {
+      const r = await api<any>(`/api/admin/salons/${salonId}/invite`, { method: "POST" });
+      setInviteLink(`${window.location.origin}${r.invite_link}`);
+      toast.ok("Ссылка выпущена — действует 72 часа");
+    } catch (e) {
+      toast.error(errorText(e));
+    }
   };
 
-  if (salon.isLoading) return <Spinner />;
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(inviteLink);
+      toast.ok("Ссылка скопирована");
+    } catch {
+      toast.error("Браузер не дал доступ к буферу — скопируйте вручную");
+    }
+  };
+
+  if (salon.isError) return <LoadError onRetry={() => salon.refetch()} />;
+  if (salon.isLoading || !salon.data) return <TableSkeleton rows={6} cols={3} />;
   const s = salon.data;
 
   return (
     <>
-      <div className="page-head">
-        <h1>{s.name} <Badge value={s.status} label={SALON_STATUS_LABELS[s.status]} /></h1>
-        <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={reinvite}>🔗 Новое приглашение владельцу</button>
-          <button className="btn-primary" onClick={impersonate}>🛠 Войти в режим поддержки</button>
-        </div>
+      <PageActions>
+        <Button size="sm" onClick={reinvite}>
+          <Link2 size={14} /> Новое приглашение
+        </Button>
+        <Button size="sm" variant="primary" onClick={impersonate}>
+          <Wrench size={14} /> Режим поддержки
+        </Button>
+      </PageActions>
+
+      <div className="section-head">
+        <h1>{s.name}</h1>
+        <Status value={s.status} label={SALON_STATUS_LABELS[s.status] ?? s.status} />
       </div>
+
       {inviteLink && (
         <div className="card">
-          Ссылка-приглашение (72 ч): <span style={{ wordBreak: "break-all" }}>{inviteLink}</span>{" "}
-          <button className="btn-sm" onClick={() => navigator.clipboard.writeText(inviteLink)}>📋</button>
+          <div className="hint mb-2">Ссылка-приглашение владельцу, действует 72 часа</div>
+          <div className="row">
+            <span className="mono" style={{ wordBreak: "break-all" }}>{inviteLink}</span>
+            <Button size="sm" onClick={copyLink}><Copy size={13} /> Скопировать</Button>
+          </div>
         </div>
       )}
+
       <Tabs active={tab} onChange={setTab} tabs={[
-        ["overview", "Обзор"], ["billing", "Биллинг"], ["flags", "Флаги"], ["audit", "Аудит"],
+        ["overview", "Обзор"], ["billing", "Биллинг"], ["flags", "Флаги"],
+        ["audit", "Журнал"],
       ]} />
       {tab === "overview" && <Overview key={s.id} salon={s} onSaved={onSaved} />}
       {tab === "billing" && <Billing key={s.id} salon={s} onSaved={onSaved} />}
