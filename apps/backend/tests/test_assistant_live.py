@@ -21,7 +21,9 @@ WD = {"пн": 0, "вт": 1, "ср": 2, "чт": 3, "пт": 4, "сб": 5, "вс": 
 PHRASES = [
     ("Запишите к Лене в четверг после 6 на маникюр",
      dict(intent="book", service="Маникюр с покрытием", staff="Елена", day="чт", time=("18:00", "-"))),
-    ("хочу подстричься завтра в 3", dict(intent="book", service="Женская стрижка", day=1, time=("15:00", "15:00"))),
+    # «подстричься» подходит и к женской, и к мужской — модель не угадывает, бот переспросит
+    ("хочу подстричься завтра в 3",
+     dict(intent="book", service=None, mentioned=None, day=1, time=("15:00", "15:00"))),
     ("Маша свободна в субботу утром? на окрашивание",
      dict(intent="book", service="Окрашивание", staff="Мария", day="сб")),
     ("мужская стрижка сегодня вечером, к любому мастеру",
@@ -33,7 +35,7 @@ PHRASES = [
      dict(intent="book", service="Женская стрижка", day="пт")),
     ("запишите мужа на стрижку во вторник в 19", dict(intent="book", service="Мужская стрижка", day="вт", time=("19:00", "19:00"))),
     ("к Лене можно?", dict(intent="book", staff="Елена", day=None)),
-    ("хочу на педикюр в среду", dict(intent="book", service=None, day="ср")),
+    ("хочу на педикюр в среду", dict(intent="book", service=None, mentioned="педикюр", day="ср")),
     ("не смогу прийти завтра, отмените", dict(intent="cancel")),
     ("отмена записи", dict(intent="cancel")),
     ("можно перенести мою запись на субботу после 12?",
@@ -68,6 +70,11 @@ def test_phrase(db, salon, phrase, exp):
     if "service" in exp:
         got = db.get(Service, d.service_id).name if d.service_id else None
         assert got == exp["service"], d
+    if "mentioned" in exp:
+        got = (d.service_mentioned or "").lower() or None
+        assert (got is None) == (exp["mentioned"] is None), d
+        if got:
+            assert exp["mentioned"] in got, d
     if "staff" in exp:
         got = 0 if d.staff_id == 0 else db.get(Staff, d.staff_id).name if d.staff_id else None
         assert got == exp["staff"], d

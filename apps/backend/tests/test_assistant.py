@@ -240,8 +240,17 @@ def test_unanswerable_question_goes_to_admin(db, salon, cat, monkeypatch):
 
 
 # ── Отказоустойчивость ────────────────────────────────────────────────────
+def test_truncated_answer_is_retried_once(db, salon, cat, monkeypatch):
+    make_customer(db, salon, "Анна", tg_id=TG)
+    fake = _fake(monkeypatch, llm.LLMError("обрыв"),
+                 _book(service_id=cat["cut"].id, date=DAY.isoformat(),
+                       time_from="12:00", time_to="12:00"))
+    assert "Записал" in _say(db, salon, "стрижка в среду в 12").text
+    assert len(fake.calls) == 2
+
+
 def test_llm_failure_falls_back_to_buttons(db, salon, cat, monkeypatch):
-    _fake(monkeypatch, llm.LLMError("timeout"))
+    _fake(monkeypatch, llm.LLMError("timeout"), llm.LLMError("timeout"))
     reply = _say(db, salon, "запишите на стрижку")
     assert reply.buttons and "Чем помочь" in reply.text and _state(db, salon) is None
 
