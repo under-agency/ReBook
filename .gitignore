@@ -29,3 +29,6 @@ dist/
 
 # Claude Code: локальная конфигурация запуска (пути к venv различаются Windows/WSL)
 .claude/launch.json
+
+# локальный оверрайд деплоя (создаёт deploy/install-ip.sh)
+deploy/docker-compose.override.yml

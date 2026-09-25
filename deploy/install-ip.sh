@@ -27,13 +27,7 @@ else
 fi
 systemctl enable --now docker
 
-echo "--- кто держит порты 80/443"
-ss -ltnp '( sport = :80 or sport = :443 )' || true
-if ss -ltnp '( sport = :80 or sport = :443 )' | grep -v docker-proxy | grep -q LISTEN; then
-  echo "!!! Порт 80/443 занят не Docker'ом (см. выше). Остановите тот сервис и запустите скрипт снова."
-  exit 1
-fi
-docker ps --format '{{.Names}}\t{{.Image}}\t{{.Ports}}' || true
+docker ps --format '{{.Names}}\t{{.Ports}}' || true
 
 echo "--- код"
 if [ -d "$DIR/.git" ]; then
@@ -79,6 +73,29 @@ if [ -z "$(getv LLM_API_KEY)" ] && [ -r /dev/tty ]; then
   [ -z "$t" ] || setv LLM_API_KEY "$t"
 fi
 unset t
+
+echo "--- порт"
+# На сервере могут жить другие проекты со своими 80/443 — их не трогаем:
+# ReBook слушает отдельный порт (по умолчанию первый свободный от 8081).
+port_busy() { ss -ltnH "( sport = :$1 )" | grep -q .; }
+PORT=$(getv HTTP_PORT)
+if [ -z "$PORT" ]; then
+  for p in $(seq 8081 8099); do port_busy "$p" || { PORT=$p; break; }; done
+  [ -n "$PORT" ] || { echo "!!! нет свободного порта 8081-8099"; exit 1; }
+  setv HTTP_PORT "$PORT"
+fi
+echo "HTTP_PORT=$PORT"
+# только HTTP-порт наружу, 443 не публикуем (он занят чужим Caddy)
+cat > docker-compose.override.yml <<YML
+# создан install-ip.sh: режим без домена на отдельном порту
+services:
+  caddy:
+    ports: !override
+      - "\${HTTP_PORT}:80"
+YML
+if command -v ufw >/dev/null && ufw status | grep -q "Status: active"; then
+  ufw allow "$PORT/tcp" >/dev/null && echo "ufw: открыт $PORT/tcp"
+fi
 echo "TELEGRAM_BOT_TOKEN: $([ -n "$(getv TELEGRAM_BOT_TOKEN)" ] && echo задан || echo ПУСТО)"
 echo "LLM_API_KEY:        $([ -n "$(getv LLM_API_KEY)" ] && echo задан || echo ПУСТО)"
 
@@ -119,5 +136,5 @@ PY
 echo "--- состояние"
 docker compose ps
 IP=$(curl -fsS -m 5 https://api.ipify.org || hostname -I | awk '{print $1}')
-echo "Проверка: $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1/api/health) (ожидается 200)"
-echo "=== Готово: http://$IP/   Лог: $LOG"
+echo "Проверка: $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:$PORT/api/health) (ожидается 200)"
+echo "=== Готово: http://$IP:$PORT/   Лог: $LOG"
