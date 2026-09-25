@@ -4,6 +4,7 @@
 прошлый и текущий месяц — дашборд и отчёт сразу показывают живые цифры.
 """
 import random
+import secrets
 import sys
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
@@ -21,6 +22,16 @@ from app.services.salons import DEFAULT_TEXTS, DEFAULT_WORK_HOURS, NICHE_PRESETS
 from app import channels
 
 rng = random.Random(42)
+
+# Известные демо-пароли — только для локальной разработки. На стенде с настоящим
+# SESSION_SECRET (прод, docker compose) пароли случайные: репозиторий открытый,
+# и учётка admin@rebook.ru / admin12345 была бы дырой.
+# Заглушки из config.py и apps/backend/.env.example считаются dev-режимом.
+DEV_MODE = settings.session_secret in {"dev_secret", "change_me_to_random_string"}
+
+
+def _password(demo: str) -> str:
+    return demo if DEV_MODE else secrets.token_urlsafe(12)
 
 # база знаний ИИ-ассистента демо-салона (цены и часы он берёт из услуг и графика)
 DEMO_FAQ = (
@@ -51,8 +62,14 @@ def seed() -> None:
         print("Данные уже есть — запустите с --reset для пересоздания.")
         return
 
+    passwords = {
+        "admin@rebook.ru": _password("admin12345"),
+        "owner@demo.ru": _password("owner12345"),
+        "staff@demo.ru": _password("staff12345"),
+    }
+
     # ── Superadmin ────────────────────────────────────────────────────────
-    db.add(User(email="admin@rebook.ru", pass_hash=hash_password("admin12345"),
+    db.add(User(email="admin@rebook.ru", pass_hash=hash_password(passwords["admin@rebook.ru"]),
                 role="superadmin"))
 
     # ── Демо-салон ────────────────────────────────────────────────────────
@@ -72,9 +89,9 @@ def seed() -> None:
     db.flush()
 
     db.add(User(salon_id=salon.id, email="owner@demo.ru",
-                pass_hash=hash_password("owner12345"), role="owner"))
+                pass_hash=hash_password(passwords["owner@demo.ru"]), role="owner"))
     db.add(User(salon_id=salon.id, email="staff@demo.ru",
-                pass_hash=hash_password("staff12345"), role="staff"))
+                pass_hash=hash_password(passwords["staff@demo.ru"]), role="staff"))
 
     services = []
     for name, price, dur, cycle in NICHE_PRESETS["салон"]:
@@ -215,9 +232,11 @@ def seed() -> None:
 
     db.commit()
     print("Сиды готовы.")
-    print("  superadmin: admin@rebook.ru / admin12345")
-    print("  владелец:   owner@demo.ru / owner12345")
-    print("  админ:      staff@demo.ru / staff12345")
+    print(f"  superadmin: admin@rebook.ru / {passwords['admin@rebook.ru']}")
+    print(f"  владелец:   owner@demo.ru / {passwords['owner@demo.ru']}")
+    print(f"  админ:      staff@demo.ru / {passwords['staff@demo.ru']}")
+    if not DEV_MODE:
+        print("  Пароли случайные и больше нигде не показываются — сохраните их.")
     print(f"  приглашение владельца салона Б: /invite/{token}")
 
 

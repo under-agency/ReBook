@@ -40,15 +40,14 @@ rebook/
 │   ├── 01-problem.md        # Анализ проблемы и экономика потерь
 │   ├── 02-product.md        # Модули продукта и сценарии работы
 │   ├── 03-architecture.md   # Техническая архитектура и безопасность
-│   ├── 04-business-model.md # Юнит-экономика и ценообразование
-│   ├── 05-go-to-market.md   # Стратегия продаж, скрипты и оффер
 │   ├── 06-roadmap.md        # Дорожная карта проекта
-│   ├── 07-risks.md          # Карта рисков и способы защиты
 │   └── demo-setup-guide.md  # Инструкция по запуску демо-стенда
 ├── deploy/                  # Прод: Dockerfile, docker-compose, Caddy (HTTPS)
 ├── ops/                     # Эксплуатация: бэкапы и проверка восстановления
 ├── scripts/                 # setup.sh (установка) и dev.sh (запуск)
 ├── .env.example             # Пример конфигурации переменных окружения
+├── LICENSE                  # PolyForm Noncommercial 1.0.0
+├── SECURITY.md              # Как сообщить об уязвимости
 ├── .gitignore               # Исключения Git
 └── README.md
 ```
@@ -71,8 +70,10 @@ sudo ./scripts/setup.sh
 ./scripts/dev.sh
 ```
 
-Демо-учётки: владелец `owner@demo.ru / owner12345`, администратор салона
-`staff@demo.ru / staff12345`, superadmin `admin@rebook.ru / admin12345`.
+Демо-учётки (только локально, пока `SESSION_SECRET` — заглушка): владелец
+`owner@demo.ru / owner12345`, администратор салона `staff@demo.ru / staff12345`,
+superadmin `admin@rebook.ru / admin12345`. На проде сиды генерируют случайные
+пароли и печатают их один раз.
 
 Подробности по бэкенду — [apps/backend/README.md](apps/backend/README.md),
 боевое развёртывание за HTTPS — [deploy/README.md](deploy/README.md).
@@ -96,5 +97,14 @@ python3 apps/telegram-bot/bot.py
 
 - **Рынок:** РФ, малый и средний сервисный бизнес с предварительной записью.
 - **Модель:** Разовое внедрение (40–70 тыс. ₽) + абонентское обслуживание (8–15 тыс. ₽/мес).
-- **Цель:** 100 000 ₽/мес recurring доход в течение 3–5 месяцев.
 - **Стек:** Python 3 (FastAPI, pyTelegramBotAPI), React + Vite, PostgreSQL; развёртывание — Docker Compose за Caddy на Ubuntu Server.
+
+---
+
+## Лицензия
+
+Код открыт для чтения, изучения и некоммерческого использования на условиях
+[PolyForm Noncommercial 1.0.0](LICENSE). Любое коммерческое использование —
+продажа, внедрение клиентам за деньги, запуск как платного сервиса — только с
+письменного разрешения авторов. По вопросам лицензии пишите через
+[issues](https://github.com/under-agency/ReBook/issues).
