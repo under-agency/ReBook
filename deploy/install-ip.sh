@@ -17,7 +17,14 @@ echo "=== ReBook install $(date -Is), ветка $BRANCH"
 echo "--- пакеты"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -q
-apt-get install -y -q docker.io docker-compose-v2 git curl openssl
+apt-get install -y -q git curl openssl
+# Docker уже стоит (например, docker-ce из download.docker.com) — не трогаем:
+# docker.io из Ubuntu конфликтует с containerd.io
+if docker compose version >/dev/null 2>&1; then
+  echo "Docker уже установлен: $(docker --version)"
+else
+  apt-get install -y -q docker.io docker-compose-v2
+fi
 systemctl enable --now docker
 
 echo "--- кто держит порты 80/443"
