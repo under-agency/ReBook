@@ -278,6 +278,41 @@ def test_button_press_drops_ai_draft(db, salon, cat, monkeypatch):
     assert _state(db, salon) is None
 
 
+def test_service_button_keeps_day_and_time_from_phrase(db, salon, cat, monkeypatch):
+    make_customer(db, salon, "Анна", tg_id=TG)
+    fake = _fake(monkeypatch, _book(date=DAY.isoformat(), time_from="18:00"))
+    reply = _say(db, salon, "хочу записаться в среду после 6")
+    assert "услугу" in reply.text
+    reply = dialogs.handle_callback(db, salon, TG, "Аня", f"s|{cat['cut'].id}")
+    db.flush()
+    [b] = _bookings(db, salon)
+    assert (b.service_id, b.starts_at) == (cat["cut"].id, _at(18))
+    assert "Записал" in reply.text and len(fake.calls) == 1
+
+
+def test_day_button_keeps_time_window(db, salon, cat, monkeypatch):
+    make_customer(db, salon, "Анна", tg_id=TG)
+    _fake(monkeypatch, _book(service_id=cat["cut"].id, staff_id=cat["lena"].id,
+                             time_from="18:00"))
+    reply = _say(db, salon, "к Лене на стрижку после 6")
+    assert "какой день" in reply.text
+    dialogs.handle_callback(db, salon, TG, "Аня",
+                            f"d|{cat['cut'].id}|{cat['lena'].id}|{DAY.isoformat()}")
+    db.flush()
+    [b] = _bookings(db, salon)
+    assert (b.staff_id, b.starts_at) == (cat["lena"].id, _at(18))
+
+
+def test_forged_button_id_does_not_reach_draft(db, salon, cat, monkeypatch):
+    other = make_salon(db, "Чужой")
+    foreign = make_service(db, other, "Чужая услуга")
+    _fake(monkeypatch, _book(date=DAY.isoformat(), time_from="18:00"))
+    _say(db, salon, "в среду после 6")
+    dialogs.handle_callback(db, salon, TG, "Аня", f"s|{foreign.id}")
+    db.flush()
+    assert not _bookings(db, salon) and _state(db, salon) is None
+
+
 # ── ПДн ───────────────────────────────────────────────────────────────────
 @pytest.mark.parametrize("text,phone,name", [
     ("мой номер +7 900 123-45-67", "+79001234567", None),

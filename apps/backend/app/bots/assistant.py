@@ -272,6 +272,36 @@ def handle(db: Session, salon: Salon, ext_id: int, name_hint: str | None,
     return dialogs.main_menu(salon, greeting=False)
 
 
+def handle_button(db: Session, salon: Salon, ext_id: int, name_hint: str | None,
+                  payload: dict, parts: list[str]) -> Reply | None:
+    """Кнопка в ответ на уточнение дополняет черновик, а не начинает запись заново:
+    «в четверг после 6» → кнопка «Стрижка» → сразу окна четверга после 18:00.
+    None — кнопка не про черновик, её обрабатывает обычный кнопочный путь."""
+    draft = Draft(**payload["draft"])
+    services, staff = _catalog(db, salon)
+    try:
+        match parts:
+            case ["s", sid]:
+                draft.service_id, draft.service_mentioned = int(sid), None
+            case ["st", sid, stid]:
+                draft.service_id, draft.staff_id = int(sid), int(stid)
+                draft.service_mentioned = draft.staff_mentioned = None
+            case ["d", sid, stid, day_iso]:
+                draft.service_id, draft.staff_id = int(sid), int(stid)
+                draft.date = date.fromisoformat(day_iso).isoformat()
+            case _:
+                return None
+    except ValueError:
+        return None
+    # callback_data приходит от клиента — чужие id не принимаем, как и от LLM
+    if draft.service_id not in {s.id for s in services}:
+        return None
+    if draft.staff_id is not None and draft.staff_id not in {s.id for s in staff} | {0}:
+        return None
+    dialogs._clear_state(db, salon, ext_id)
+    return _book(db, salon, ext_id, name_hint, draft, Scrubbed("", None, None))
+
+
 def _who(db: Session, salon: Salon, ext_id: int, name_hint: str | None) -> str:
     customer = dialogs._customer(db, salon, ext_id)
     return customer.name if customer and customer.name else (name_hint or "клиент")
