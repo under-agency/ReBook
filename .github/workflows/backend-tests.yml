@@ -51,4 +51,14 @@ jobs:
           cache: pip
           cache-dependency-path: apps/backend/requirements.txt
       - run: pip install -r requirements.txt
-      - run: python -m pytest -q
+      - name: pytest
+        run: |
+          set -o pipefail
+          python -m pytest -q -rfE 2>&1 | tee pytest.log
+      # логи Actions видны только после входа — упавшие тесты выносим в аннотации PR
+      - name: Упавшие тесты
+        if: failure()
+        run: |
+          grep -E '^(FAILED|ERROR) ' pytest.log | head -10 | while IFS= read -r line; do
+            echo "::error title=pytest::${line}"
+          done
