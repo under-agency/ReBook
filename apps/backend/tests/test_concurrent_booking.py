@@ -19,8 +19,12 @@ from app.services.salons import DEFAULT_TEXTS, DEFAULT_WORK_HOURS
 engine = create_engine(settings.database_url_test)
 Session = sessionmaker(bind=engine, expire_on_commit=False)
 
-SLOT = (datetime.now(timezone.utc) + timedelta(days=30)).replace(
-    hour=9, minute=0, second=0, microsecond=0)
+_DAY = datetime.now(timezone.utc) + timedelta(days=30)
+# воскресенье в DEFAULT_WORK_HOURS выходной: обе попытки получили бы «вне рабочих часов»
+# вместо гонки, и тест падал бы каждый седьмой день
+if _DAY.weekday() == 6:
+    _DAY += timedelta(days=1)
+SLOT = _DAY.replace(hour=9, minute=0, second=0, microsecond=0)  # 12:00 МСК
 
 
 @pytest.fixture
