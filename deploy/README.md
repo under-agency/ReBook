@@ -25,6 +25,9 @@ sudo docker compose up -d --build
 sudo docker compose exec backend python -m app.seed   # только на первом стенде
 ```
 
+Сиды на проде создают учётки со случайными паролями и печатают их один раз —
+сохраните вывод. Демо-пароли из README работают только локально.
+
 Схема накатывается автоматически при старте `backend` (`alembic upgrade head`).
 Caddy сам получит сертификат Let's Encrypt, как только домен резолвится на сервер.
 

@@ -34,6 +34,8 @@ sudo -u postgres psql -c "CREATE DATABASE rebook_test OWNER rebook ENCODING 'UTF
 
 Сиды создают учётки: `admin@rebook.ru / admin12345` (superadmin),
 `owner@demo.ru / owner12345` (владелец), `staff@demo.ru / staff12345` (админ салона).
+Эти пароли — только пока `SESSION_SECRET` — заглушка из `.env.example`;
+с настоящим секретом сиды генерируют случайные пароли и печатают их.
 Пересоздать демо-данные: `./.venv/bin/python -m app.seed --reset`.
 
 ## Запуск
