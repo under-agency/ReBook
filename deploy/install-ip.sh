@@ -5,6 +5,10 @@
 # Повторный запуск безопасен: код обновится, секреты и база сохранятся.
 set -euo pipefail
 
+# Всё в функции: при `curl | bash` bash сначала дочитывает скрипт целиком,
+# и команды, читающие stdin (docker compose exec), не съедят его остаток.
+main() {
+
 REPO=https://github.com/under-agency/ReBook.git
 BRANCH=${BRANCH:-claude/clever-cannon-wfgwz5}
 DIR=/opt/rebook
@@ -104,7 +108,7 @@ docker compose up -d --build --remove-orphans
 
 echo "--- ждём backend"
 for i in $(seq 1 60); do
-  if docker compose exec -T backend python -c "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8000/api/health')" 2>/dev/null; then
+  if docker compose exec -T backend python -c "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8000/api/health')" </dev/null 2>/dev/null; then
     echo "backend жив"; break
   fi
   [ "$i" = 60 ] && { echo "!!! backend не поднялся"; docker compose logs --tail 80 backend; exit 1; }
@@ -113,7 +117,7 @@ done
 
 echo "--- демо-данные (пароли выводятся только на экран, не в лог)"
 OUT=/dev/tty; [ -w /dev/tty ] || OUT=/dev/stdout
-docker compose exec -T backend python -m app.seed >"$OUT"
+docker compose exec -T backend python -m app.seed </dev/null >"$OUT"
 # если данные были от прошлой установки, в них могли остаться demo-пароли — меняем на случайные
 (docker compose exec -T backend python - <<'PY'
 import secrets
@@ -138,3 +142,6 @@ docker compose ps
 IP=$(curl -fsS -m 5 https://api.ipify.org || hostname -I | awk '{print $1}')
 echo "Проверка: $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:$PORT/api/health) (ожидается 200)"
 echo "=== Готово: http://$IP:$PORT/   Лог: $LOG"
+}
+
+main "$@"
