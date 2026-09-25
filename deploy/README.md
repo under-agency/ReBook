@@ -2,6 +2,13 @@
 
 Один VPS в РФ (2 vCPU / 2 ГБ достаточно), Docker Compose, HTTPS через Caddy.
 
+Без домена, по IP — одной командой от root (ставит Docker, генерирует секреты,
+спрашивает токены, поднимает стек, меняет демо-пароли на случайные):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/under-agency/ReBook/claude/clever-cannon-wfgwz5/deploy/install-ip.sh | bash
+```
+
 ## Первый запуск
 
 ```bash
