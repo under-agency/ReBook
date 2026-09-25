@@ -32,6 +32,9 @@ services:
       SESSION_SECRET: ${SESSION_SECRET:?задайте SESSION_SECRET в .env}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
       BOT_SALON_ID: ${BOT_SALON_ID:-}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_BASE_URL: ${LLM_BASE_URL:-https://openrouter.ai/api/v1}
+      LLM_MODEL: ${LLM_MODEL:-google/gemini-2.5-flash}
     # схема накатывается до старта API
     command: >
       sh -c "python -m alembic upgrade head &&

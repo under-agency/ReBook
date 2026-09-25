@@ -1,7 +1,8 @@
 """Канал-агностичный конечный автомат записи (docs/08, 09).
 
 Выбор из списков едет в callback_data кнопок, свободный ввод (имя, телефон) —
-через таблицу dialog_state. Адаптеры каналов (telegram.py) только переводят
+через таблицу dialog_state. Произвольный текст вне этих шагов разбирает
+ИИ-ассистент (assistant.py), если он включён у салона. Адаптеры каналов (telegram.py) только переводят
 апдейты в вызовы этих функций и рендерят Reply.
 """
 from dataclasses import dataclass, field
@@ -52,6 +53,7 @@ def _clear_state(db: Session, salon: Salon, ext_id: int) -> None:
     state = _state(db, salon, ext_id)
     if state is not None:
         db.delete(state)
+        db.flush()  # иначе db.get в том же апдейте вернёт удалённую строку и _set_state её потеряет
 
 
 def _gate(salon: Salon) -> Reply | None:
@@ -61,9 +63,12 @@ def _gate(salon: Salon) -> Reply | None:
 
 
 def main_menu(salon: Salon, greeting: bool = True, name: str | None = None) -> Reply:
+    from app.bots import assistant
     hello = f"👋 Здравствуйте{', ' + name if name else ''}!\n{salon.name} на связи.\n\n" if greeting else ""
+    hint = ("\n\nМожно просто написать, что нужно, — например: "
+            "«на маникюр в пятницу после 18»." if assistant.active(salon) else "")
     return Reply(
-        hello + "Чем помочь?",
+        hello + "Чем помочь?" + hint,
         buttons=[
             [("📅 Записаться", "m|book")],
             [("🗓 Мои записи", "m|my")],
@@ -96,6 +101,9 @@ def handle_callback(db: Session, salon: Salon, ext_id: int,
     if (gate := _gate(salon)):
         return gate
     parts = data.split("|")
+    state = _state(db, salon, ext_id)
+    if state is not None and state.step.startswith("ai_"):
+        _clear_state(db, salon, ext_id)  # клиент ушёл на кнопки — черновик ассистента не нужен
     try:
         match parts:
             case ["m", "menu"]:
@@ -134,10 +142,15 @@ def handle_text(db: Session, salon: Salon, ext_id: int, name_hint: str | None,
                 text: str, contact_phone: str | None = None) -> Reply:
     if (gate := _gate(salon)):
         return gate
+    from app.bots import assistant
     state = _state(db, salon, ext_id)
-    if state is None:
-        return main_menu(salon, greeting=False,
-                         name=None)
+    if state is None or state.step.startswith("ai_"):
+        if assistant.active(salon):
+            return assistant.handle(db, salon, ext_id, name_hint, text,
+                                    state.step if state else None,
+                                    dict(state.payload) if state else None)
+        _clear_state(db, salon, ext_id)
+        return main_menu(salon, greeting=False)
     if state.step == "ask_question":
         _clear_state(db, salon, ext_id)
         customer = _customer(db, salon, ext_id)
@@ -165,6 +178,8 @@ def handle_text(db: Session, salon: Salon, ext_id: int, name_hint: str | None,
                                payload["service_id"], payload["staff_id"],
                                payload["starts_at"])
     _clear_state(db, salon, ext_id)
+    if assistant.active(salon):
+        return assistant.handle(db, salon, ext_id, name_hint, text, None, None)
     return main_menu(salon, greeting=False)
 
 

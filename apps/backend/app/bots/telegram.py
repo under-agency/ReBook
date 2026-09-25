@@ -92,6 +92,10 @@ def build_bot(token: str, salon_id: int) -> telebot.TeleBot:
     @bot.message_handler(content_types=["text"])
     @_with_session
     def on_text(msg, db, salon):
+        try:
+            bot.send_chat_action(msg.chat.id, "typing")  # ИИ-ассистент думает пару секунд
+        except Exception:
+            pass
         reply = dialogs.handle_text(db, salon, msg.from_user.id,
                                     msg.from_user.first_name, msg.text)
         _deliver(msg.chat.id, reply, salon)
