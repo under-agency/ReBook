@@ -18,6 +18,8 @@ DEFAULT_TEXTS = {
     "sms_chase": "{имя}, подтвердите запись {дата} в {время} ({салон}). Ответьте боту или позвоните нам.",
     "confirm": "Запись подтверждена: {услуга}, {дата} в {время}. Ждём вас!",
     "reactivation": "{имя}, давно не виделись! Пора обновить {услуга} — есть удобные окна на этой неделе. Записать?",
+    # не шаблон, а база знаний ИИ-ассистента: адрес, как добраться, оплата, правила
+    "faq": "",
 }
 
 # Заготовки услуг по нишам: (название, цена, длительность мин, цикл повтора дней)
@@ -56,7 +58,8 @@ def create_salon(
         channel_priority=channel_priority or ["tg", "max", "sms"],
         sms_limit_month=sms_limit_month, texts=dict(DEFAULT_TEXTS),
         monthly_fee=monthly_fee, timezone=timezone,
-        feature_flags={"reactivation": False, "max_channel": False, "waitlist": False},
+        feature_flags={"reactivation": False, "max_channel": False, "waitlist": False,
+                       "llm_assistant": False},
     )
     db.add(salon)
     db.flush()

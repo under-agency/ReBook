@@ -22,6 +22,15 @@ from app import channels
 
 rng = random.Random(42)
 
+# база знаний ИИ-ассистента демо-салона (цены и часы он берёт из услуг и графика)
+DEMO_FAQ = (
+    "Адрес: Москва, ул. Садовая, 12, вход со двора, 2 этаж. От метро «Маяковская» 5 минут пешком.\n"
+    "Оплата: наличные, карта, СБП.\n"
+    "Парковка: бесплатная во дворе.\n"
+    "Опоздание больше 15 минут — запись может сдвинуться или отмениться.\n"
+    "Отменить или перенести запись можно в этом боте без звонка."
+)
+
 FIRST_NAMES = ["Анна", "Мария", "Ольга", "Елена", "Наталья", "Ирина", "Татьяна",
                "Светлана", "Юлия", "Екатерина", "Дарья", "Алина", "Вера", "Полина",
                "Ксения", "Людмила", "Галина", "Оксана", "Марина", "Алла", "Никита",
@@ -52,11 +61,12 @@ def seed() -> None:
         name="Салон «Анна»", status="active", niche="салон",
         tg_bot_token=settings.telegram_bot_token or None,
         avg_check=Decimal("2200"), work_hours=DEFAULT_WORK_HOURS,
-        texts=dict(DEFAULT_TEXTS), sms_limit_month=300,
+        texts={**DEFAULT_TEXTS, "faq": DEMO_FAQ}, sms_limit_month=300,
         monthly_fee=Decimal("10000"),
         next_payment_at=(datetime.now(tz) + timedelta(days=12)).date(),
         onboarding_step=4,
-        feature_flags={"reactivation": True, "max_channel": False, "waitlist": True},
+        feature_flags={"reactivation": True, "max_channel": False, "waitlist": True,
+                       "llm_assistant": True},
     )
     db.add(salon)
     db.flush()
@@ -72,7 +82,7 @@ def seed() -> None:
                     duration_min=dur, repeat_cycle_days=cycle)
         db.add(s)
         services.append(s)
-    staff = [Staff(salon_id=salon.id, name=n) for n in ("Мария", "Ольга", "Виктория")]
+    staff = [Staff(salon_id=salon.id, name=n) for n in ("Мария", "Елена", "Виктория")]
     db.add_all(staff)
     db.flush()
 

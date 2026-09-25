@@ -14,7 +14,9 @@ cp .env.example .env
 
 - `DOMAIN` — домен кабинета, A-запись уже должна указывать на этот сервер;
 - `DB_PASSWORD` и `SESSION_SECRET` — `openssl rand -hex 32` на каждый;
-- `TELEGRAM_BOT_TOKEN` — токен бота от @BotFather.
+- `TELEGRAM_BOT_TOKEN` — токен бота от @BotFather;
+- `LLM_API_KEY` — ключ OpenRouter (или другого OpenAI-совместимого API) для
+  ИИ-ассистента; пусто — бот работает только кнопками.
 
 Затем:
 

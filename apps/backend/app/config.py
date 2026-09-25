@@ -33,5 +33,13 @@ class Settings(BaseSettings):
     no_show_rate: float = 0.15
     sms_cost: float = 4.00
 
+    # LLM-ассистент бота (docs/03-architecture.md). Любой OpenAI-совместимый
+    # endpoint: по умолчанию OpenRouter; пустой ключ — ассистент выключен,
+    # бот работает только кнопками.
+    llm_api_key: str = ""
+    llm_base_url: str = "https://openrouter.ai/api/v1"
+    llm_model: str = "google/gemini-2.5-flash"
+    llm_timeout_s: float = 12.0
+
 
 settings = Settings()

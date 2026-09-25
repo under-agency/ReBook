@@ -15,7 +15,7 @@ import { SALON_STATUS_LABELS } from "./SalonsListPage";
 
 const FLAG_LABELS: Record<string, string> = {
   reactivation: "Реактивация базы", max_channel: "Канал MAX",
-  waitlist: "Лист ожидания", llm_faq: "FAQ с LLM", yclients: "Синхронизация YCLIENTS",
+  waitlist: "Лист ожидания", llm_assistant: "ИИ-ассистент в боте", yclients: "Синхронизация YCLIENTS",
 };
 
 function Overview({ salon, onSaved }: { salon: any; onSaved: () => void }) {
