@@ -14,10 +14,10 @@ def _at(day, hour):
     return datetime(YEAR, MONTH, day, hour, 0, tzinfo=TZ).astimezone(timezone.utc)
 
 
-def _reminder(db, salon, booking, customer, channel="tg"):
+def _reminder(db, salon, booking, customer, channel="tg", status="sent"):
     db.add(MessageLog(salon_id=salon.id, customer_id=customer.id,
                       booking_id=booking.id, channel=channel, kind="reminder_24h",
-                      cost=Decimal("0"), delivery_status="sent",
+                      cost=Decimal("0"), delivery_status=status,
                       sent_at=booking.starts_at - timedelta(hours=24)))
     db.flush()
 
@@ -87,3 +87,56 @@ def test_sms_costs_aggregated(db, salon_a):
     assert report["sms_count"] == 1
     assert report["sms_cost"] == 4.0
     assert report["no_show"] == 1
+
+
+def test_undelivered_reminder_not_counted(db, salon_a):
+    """SMS-заглушка и сбой отправки визит не спасали — в «возвращено» не идут."""
+    service = make_service(db, salon_a)
+    customer = make_customer(db, salon_a)
+    for day, channel, status in ((3, "sms", "stub"), (4, "tg", "failed")):
+        b = make_booking(db, salon_a, customer, service,
+                         starts_at=_at(day, 12), status="done")
+        _reminder(db, salon_a, b, customer, channel=channel, status=status)
+    report = month_report(db, salon_a, YEAR, MONTH)
+    assert report["bookings_total"] == 2
+    assert report["confirmed"] == 0
+    assert report["returned_prevented"] == 0
+
+
+def test_delivered_reminder_counts_once_despite_stub(db, salon_a):
+    service = make_service(db, salon_a)
+    customer = make_customer(db, salon_a)
+    b = make_booking(db, salon_a, customer, service,
+                     starts_at=_at(5, 12), status="done")
+    _reminder(db, salon_a, b, customer, channel="sms", status="stub")
+    _reminder(db, salon_a, b, customer, channel="tg", status="sent")
+    report = month_report(db, salon_a, YEAR, MONTH)
+    assert report["confirmed"] == 1
+    assert report["returned_prevented"] == 0.15 * 2000
+
+
+def test_undelivered_reactivation_not_counted(db, salon_a):
+    service = make_service(db, salon_a)
+    customer = make_customer(db, salon_a)
+    make_booking(db, salon_a, customer, service, starts_at=_at(15, 12),
+                 status="done", created_at=_at(12, 10))
+    db.add(MessageLog(salon_id=salon_a.id, customer_id=customer.id,
+                      channel="sms", kind="reactivation", cost=Decimal("4.00"),
+                      delivery_status="stub", sent_at=_at(11, 10)))
+    db.flush()
+    report = month_report(db, salon_a, YEAR, MONTH)
+    assert report["reactivation_visits"] == 0
+    assert report["returned_reactivation"] == 0
+
+
+def test_waitlist_offer_counts_only_when_delivered(db, salon_a):
+    service = make_service(db, salon_a)
+    customer = make_customer(db, salon_a)
+    for day, channel, status in ((6, "sms", "stub"), (7, "tg", "sent")):
+        b = make_booking(db, salon_a, customer, service,
+                         starts_at=_at(day, 12), status="done")
+        db.add(MessageLog(salon_id=salon_a.id, customer_id=customer.id, booking_id=b.id,
+                          channel=channel, kind="waitlist_offer", cost=Decimal("0"),
+                          delivery_status=status, sent_at=_at(day - 1, 12)))
+    db.flush()
+    assert month_report(db, salon_a, YEAR, MONTH)["waitlist_visits"] == 1

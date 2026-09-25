@@ -12,6 +12,10 @@ from app.config import settings
 from app.models import Booking, MessageLog, Salon
 
 REMINDER_KINDS = ("reminder_24h", "reminder_3h", "sms_chase")
+# Визит спасает только дошедшее сообщение. SMS-заглушка (stub) и сбой отправки
+# (failed) пишутся в журнал, но до клиента не доходят — засчитывать их в
+# «возвращено» значит показывать владельцу деньги, которых система не вернула.
+DELIVERED = ("sent",)
 
 
 def month_bounds(salon: Salon, year: int, month: int) -> tuple[datetime, datetime]:
@@ -26,6 +30,7 @@ def _had_message(booking_alias, kinds: tuple[str, ...]):
     return exists(select(MessageLog.id).where(
         MessageLog.booking_id == booking_alias.id,
         MessageLog.kind.in_(kinds),
+        MessageLog.delivery_status.in_(DELIVERED),
     ))
 
 
@@ -58,6 +63,7 @@ def month_report(db: Session, salon: Salon, year: int, month: int) -> dict:
         n(visited, exists(select(MessageLog.id).where(
             MessageLog.customer_id == Booking.customer_id,
             MessageLog.kind == "reactivation",
+            MessageLog.delivery_status.in_(DELIVERED),
             MessageLog.sent_at < Booking.created_at,
             MessageLog.sent_at > Booking.created_at - timedelta(days=30),
         ))),
