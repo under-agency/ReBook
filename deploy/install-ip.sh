@@ -14,6 +14,8 @@ BRANCH=${BRANCH:-claude/clever-cannon-wfgwz5}
 DIR=/opt/rebook
 LOG=/root/rebook-install.log
 
+# fd 3 — исходный stdout мимо лога: туда идут пароли
+exec 3>&1
 exec > >(tee -a "$LOG") 2>&1
 echo "=== ReBook install $(date -Is), ветка $BRANCH"
 [ "$(id -u)" = 0 ] || { echo "Запустите от root"; exit 1; }
@@ -116,9 +118,7 @@ for i in $(seq 1 60); do
 done
 
 echo "--- демо-данные (пароли выводятся только на экран, не в лог)"
-# -w не годится: /dev/tty доступен на запись, но без управляющего терминала не открывается
-OUT=/dev/tty; { : >/dev/tty; } 2>/dev/null || OUT=/dev/stdout
-docker compose exec -T backend python -m app.seed </dev/null >"$OUT"
+docker compose exec -T backend python -m app.seed </dev/null >&3
 # если данные были от прошлой установки, в них могли остаться demo-пароли — меняем на случайные
 (docker compose exec -T backend python - <<'PY'
 import secrets
@@ -136,7 +136,7 @@ for email in ("admin@rebook.ru", "owner@demo.ru", "staff@demo.ru"):
         print(f"  {email} / {p}")
 db.commit()
 PY
-) >"$OUT"
+) >&3
 
 echo "--- состояние"
 docker compose ps
