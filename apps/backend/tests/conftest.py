@@ -1,7 +1,8 @@
 """Тестовая БД rebook_test: схема один раз, каждый тест — в транзакции с откатом."""
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, time, timedelta, timezone
 from decimal import Decimal
+from zoneinfo import ZoneInfo
 
 import pytest
 from fastapi.testclient import TestClient
@@ -14,6 +15,7 @@ from app.db import get_db
 from app.main import app
 from app.models import Base, Booking, Customer, Salon, Service, Staff, User
 from app.services.salons import DEFAULT_TEXTS, DEFAULT_WORK_HOURS
+from app.services.slots import within_work_hours
 
 engine = create_engine(settings.database_url_test)
 
@@ -109,6 +111,24 @@ def make_booking(db, salon, customer, service, staff=None,
     db.add(booking)
     db.flush()
     return booking
+
+
+def next_working_slot(salon, *, days_ahead=1, hour=12, duration_min=60) -> datetime:
+    """Ближайшее рабочее окно салона не раньше чем через days_ahead суток → aware UTC.
+
+    Тесты, которые идут через create_booking, не могут брать «сейчас + 3 дня»
+    наугад: время должно попадать в рабочие часы, иначе валидация даст warning.
+    Воскресенье в DEFAULT_WORK_HOURS выходной, поэтому день подбираем.
+    """
+    tz = ZoneInfo(salon.timezone)
+    day = datetime.now(tz).date() + timedelta(days=days_ahead)
+    for _ in range(14):
+        starts_at = datetime.combine(day, time(hour), tzinfo=tz).astimezone(timezone.utc)
+        if within_work_hours(work_hours=salon.work_hours, staff_hours=None,
+                             starts_at=starts_at, duration_min=duration_min, tz=tz):
+            return starts_at
+        day += timedelta(days=1)
+    raise AssertionError("у салона нет рабочего дня в ближайшие две недели")
 
 
 def login(client, user) -> None:
