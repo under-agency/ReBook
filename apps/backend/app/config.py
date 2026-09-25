@@ -39,7 +39,7 @@ class Settings(BaseSettings):
     llm_api_key: str = ""
     llm_base_url: str = "https://openrouter.ai/api/v1"
     llm_model: str = "google/gemini-2.5-flash"
-    llm_timeout_s: float = 12.0
+    llm_timeout_s: float = 10.0  # с одним повтором ответ укладывается в ~20 с
 
 
 settings = Settings()
