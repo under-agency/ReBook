@@ -84,9 +84,13 @@ def build_bot(token: str, salon_id: int) -> telebot.TeleBot:
     @bot.message_handler(content_types=["contact"])
     @_with_session
     def on_contact(msg, db, salon):
+        # Telegram отдаёт номер контакта в международном формате, но часто без «+»
+        phone = msg.contact.phone_number
+        if phone and not phone.startswith("+"):
+            phone = "+" + phone
         reply = dialogs.handle_text(db, salon, msg.from_user.id,
                                     msg.from_user.first_name, "",
-                                    contact_phone=msg.contact.phone_number)
+                                    contact_phone=phone)
         _deliver(msg.chat.id, reply, salon)
 
     @bot.message_handler(content_types=["text"])

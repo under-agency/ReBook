@@ -102,6 +102,12 @@ def handle_callback(db: Session, salon: Salon, ext_id: int,
         return gate
     parts = data.split("|")
     state = _state(db, salon, ext_id)
+    if state is not None and state.step == "ai_book":
+        from app.bots import assistant
+        # кнопка-ответ на уточнение ассистента: день и время из фразы не теряем
+        if (reply := assistant.handle_button(db, salon, ext_id, name_hint,
+                                             dict(state.payload), parts)) is not None:
+            return reply
     if state is not None and state.step.startswith("ai_"):
         _clear_state(db, salon, ext_id)  # клиент ушёл на кнопки — черновик ассистента не нужен
     try:

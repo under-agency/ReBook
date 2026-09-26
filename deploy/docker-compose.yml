@@ -64,7 +64,8 @@ services:
     depends_on: [backend]
     ports: ["80:80", "443:443"]
     environment:
-      DOMAIN: ${DOMAIN:?задайте DOMAIN в .env}
+      # пусто — сайт по IP на :80 без TLS
+      DOMAIN: ${DOMAIN:-:80}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data

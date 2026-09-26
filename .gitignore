@@ -4,6 +4,8 @@
 !.env.example
 google-creds.json
 *.json.key
+# локальный оверрайд деплоя (создаёт deploy/install-ip.sh)
+deploy/docker-compose.override.yml
 
 # Runtime data & logs
 bookings.csv

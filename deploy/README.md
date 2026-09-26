@@ -2,6 +2,13 @@
 
 Один VPS в РФ (2 vCPU / 2 ГБ достаточно), Docker Compose, HTTPS через Caddy.
 
+Без домена, по IP — одной командой от root (ставит Docker, генерирует секреты,
+спрашивает токены, поднимает стек, меняет демо-пароли на случайные):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/under-agency/ReBook/main/deploy/install-ip.sh | bash
+```
+
 ## Первый запуск
 
 ```bash
@@ -12,7 +19,9 @@ cp .env.example .env
 
 В `.env` заполнить:
 
-- `DOMAIN` — домен кабинета, A-запись уже должна указывать на этот сервер;
+- `DOMAIN` — домен кабинета, A-запись уже должна указывать на этот сервер.
+  Пока домена нет, оставьте пустым: Caddy отдаёт сайт по `http://<IP>/` на :80
+  без TLS. Пароли и куки тогда идут открытым текстом — это временный режим;
 - `DB_PASSWORD` и `SESSION_SECRET` — `openssl rand -hex 32` на каждый;
 - `TELEGRAM_BOT_TOKEN` — токен бота от @BotFather;
 - `LLM_API_KEY` — ключ OpenRouter (или другого OpenAI-совместимого API) для
