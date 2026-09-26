@@ -29,3 +29,6 @@ dist/
 
 # Claude Code: локальная конфигурация запуска (пути к venv различаются Windows/WSL)
 .claude/launch.json
+
+# Локальные выгрузки с контактами — не коммитим
+leads/
