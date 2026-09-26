@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # Установка/обновление ReBook на Ubuntu 24.04 без домена: сайт по http://<IP>/.
 # Запуск от root:
-#   curl -fsSL https://raw.githubusercontent.com/under-agency/ReBook/<ветка>/deploy/install-ip.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/under-agency/ReBook/main/deploy/install-ip.sh | bash
 # Повторный запуск безопасен: код обновится, секреты и база сохранятся.
+# Пароли демо-учёток при каждом запуске меняются на новые — сохраняйте вывод.
+# Другая ветка: BRANCH=<ветка> перед bash.
 set -euo pipefail
 
 # Всё в функции: при `curl | bash` bash сначала дочитывает скрипт целиком,
@@ -10,7 +12,7 @@ set -euo pipefail
 main() {
 
 REPO=https://github.com/under-agency/ReBook.git
-BRANCH=${BRANCH:-claude/clever-cannon-wfgwz5}
+BRANCH=${BRANCH:-main}
 DIR=/opt/rebook
 LOG=/root/rebook-install.log
 

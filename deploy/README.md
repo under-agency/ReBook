@@ -6,7 +6,7 @@
 спрашивает токены, поднимает стек, меняет демо-пароли на случайные):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/under-agency/ReBook/claude/clever-cannon-wfgwz5/deploy/install-ip.sh | bash
+curl -fsSL https://raw.githubusercontent.com/under-agency/ReBook/main/deploy/install-ip.sh | bash
 ```
 
 ## Первый запуск
