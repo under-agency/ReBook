@@ -65,7 +65,9 @@
   агрегатора (SMS Aero / SMSC / SMS.ru) и эндпоинт колбэка статусов доставки,
   который обновляет `delivery_status` по `message_log.id`.
 - [x] **Деплой.** `deploy/`: docker-compose (db, backend, worker, caddy), Dockerfile
-  со сборкой фронта, Caddy с автоматическим Let's Encrypt. Осталось выкатить на VPS.
+  со сборкой фронта, Caddy с автоматическим Let's Encrypt; `deploy/provision.sh` —
+  защита сервера и запуск стека одной командой, `deploy/check.sh` — проверка.
+  Осталось выкатить на VPS.
 - [ ] **Вебхуки вместо полинга.** Локально бот работает полингом (`app/run_bot.py`).
   В проде нужен `POST /webhook/tg/<salon_id>` в `api/`, который отдаёт апдейт в
   `bots/dialogs.py`, и регистрация вебхука при онбординге салона в админке
