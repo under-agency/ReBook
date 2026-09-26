@@ -8,10 +8,11 @@ from zoneinfo import ZoneInfo
 
 from sqlalchemy import func, select
 
+from app import channels
 from app.models import AuditLog, Booking, Customer, MessageLog
 from tests.conftest import (
-    login, make_booking, make_customer, make_service, make_staff, make_user,
-    next_working_slot,
+    FakeTransport, login, make_booking, make_customer, make_service, make_staff,
+    make_user, next_working_slot,
 )
 
 
@@ -59,8 +60,10 @@ def test_naive_time_is_read_in_salon_timezone(db, client, salon_a):
     assert db.get(Booking, r.json()["id"]).starts_at == slot
 
 
-def test_manual_booking_joins_the_reminder_cascade(db, client, salon_a):
+def test_manual_booking_joins_the_reminder_cascade(db, client, salon_a, monkeypatch):
     """Телефонная запись должна жить по общим правилам: статус new и подтверждение."""
+    # без подмены бот с тестовым токеном не доставит, и подтверждение уйдёт в SMS
+    monkeypatch.setattr(channels, "telegram_transport", FakeTransport())
     service, staff = _env(db, salon_a, client)
     customer = make_customer(db, salon_a, tg_id=31337)
     slot = next_working_slot(salon_a, duration_min=service.duration_min)
@@ -73,7 +76,7 @@ def test_manual_booking_joins_the_reminder_cascade(db, client, salon_a):
     assert db.get(Booking, booking_id).status == "new"
     confirm = db.scalars(select(MessageLog).where(
         MessageLog.booking_id == booking_id, MessageLog.kind == "confirm")).one()
-    assert confirm.channel == "tg"
+    assert (confirm.channel, confirm.delivery_status) == ("tg", "sent")
 
 
 def test_create_booking_with_new_customer_normalizes_phone(db, client, salon_a):

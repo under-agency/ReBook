@@ -8,14 +8,13 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import and_, exists, func, select
 from sqlalchemy.orm import Session
 
+from app.channels import DELIVERED
 from app.config import settings
 from app.models import Booking, MessageLog, Salon
 
 REMINDER_KINDS = ("reminder_24h", "reminder_3h", "sms_chase")
-# Визит спасает только дошедшее сообщение. SMS-заглушка (stub) и сбой отправки
-# (failed) пишутся в журнал, но до клиента не доходят — засчитывать их в
-# «возвращено» значит показывать владельцу деньги, которых система не вернула.
-DELIVERED = ("sent",)
+# Визит спасает только дошедшее сообщение (DELIVERED): засчитывать stub и failed
+# в «возвращено» значит показывать владельцу деньги, которых система не вернула.
 
 
 def month_bounds(salon: Salon, year: int, month: int) -> tuple[datetime, datetime]:

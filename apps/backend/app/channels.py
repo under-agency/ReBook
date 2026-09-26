@@ -25,6 +25,9 @@ from app.models import (
 # do_not_disturb (клиент отписался от маркетинга, не от своих записей).
 TRANSACTIONAL_KINDS = ("reminder_24h", "reminder_3h", "sms_chase", "confirm")
 MARKETING_KINDS = ("reactivation", "waitlist_offer")
+# До клиента дошло только sent. SMS-заглушка (stub) и сбой отправки (failed)
+# пишутся в журнал, но клиент их не получил: ни отчёт, ни каскад их не засчитывают.
+DELIVERED = ("sent",)
 
 RU_MONTHS = ["января", "февраля", "марта", "апреля", "мая", "июня",
              "июля", "августа", "сентября", "октября", "ноября", "декабря"]
@@ -33,6 +36,10 @@ RU_MONTHS = ["января", "февраля", "марта", "апреля", "м
 class Transport(Protocol):
     def __call__(self, salon: Salon, customer: Customer, text: str,
                  *, booking_id: int | None = None, kind: str = "") -> bool: ...
+
+
+class AdminNotifier(Protocol):
+    def __call__(self, salon: Salon, text: str) -> bool: ...
 
 
 def render(template: str, *, salon: Salon, customer: Customer | None = None,
@@ -77,6 +84,19 @@ def telegram_transport(salon: Salon, customer: Customer, text: str,
         return False
 
 
+def telegram_admin_notify(salon: Salon, text: str) -> bool:
+    """Сообщение в чат админа салона — тот, что привязан командой /admin в боте."""
+    if not (salon.admin_tg_chat_id and salon.tg_bot_token):
+        return False
+    import telebot
+    bot = telebot.TeleBot(salon.tg_bot_token, threaded=False)
+    try:
+        bot.send_message(salon.admin_tg_chat_id, text)
+        return True
+    except Exception:
+        return False
+
+
 def sms_sent_this_month(db: Session, salon: Salon, now: datetime) -> int:
     local = now.astimezone(ZoneInfo(salon.timezone))
     month_start = datetime(local.year, local.month, 1, tzinfo=ZoneInfo(salon.timezone))
@@ -96,8 +116,10 @@ def send(
 ) -> MessageLog | None:
     """Отправляет по каскаду приоритета салона, пишет в message_log.
 
+    Сбой Telegram (клиент заблокировал бота) — не конец: пробуем следующий канал.
     force_channel — пропустить каскад и слать только в этот канал (SMS-догон).
-    Возвращает MessageLog или None, если отправка запрещена гейтами.
+    Возвращает последнюю попытку (дошла ли — по delivery_status) или None,
+    если отправка запрещена гейтами или слать некуда.
     """
     now = now or datetime.now(timezone.utc)
     if salon.status not in SALON_SENDING_STATUSES:
@@ -107,23 +129,27 @@ def send(
     transport = transport or telegram_transport
 
     channel_order = [force_channel] if force_channel else salon.channel_priority
+    attempt = None
     for channel in channel_order:
         if channel == "tg" and customer.tg_id and salon.tg_bot_token:
             ok = transport(salon, customer, text,
                            booking_id=booking.id if booking else None, kind=kind)
-            return _log(db, salon, customer, booking, "tg", kind, text,
-                        Decimal("0"), "sent" if ok else "failed")
+            attempt = _log(db, salon, customer, booking, "tg", kind, text,
+                           Decimal("0"), "sent" if ok else "failed")
+            if ok:
+                return attempt
+            continue
         if channel == "max":
             continue  # MAX-канал вне скоупа
         if channel == "sms" and customer.phone:
             # При 100% лимита реактивационные SMS останавливаются,
             # напоминания продолжают идти в перерасход (docs/10-crm-logic.md)
             if kind in MARKETING_KINDS and sms_sent_this_month(db, salon, now) >= salon.sms_limit_month:
-                return None
+                return attempt
             # SMS-агрегатор вне скоупа: пишем заглушку в лог с реальной стоимостью
             return _log(db, salon, customer, booking, "sms", kind, text,
                         Decimal(str(settings.sms_cost)), "stub")
-    return None
+    return attempt
 
 
 def _log(db: Session, salon: Salon, customer: Customer, booking: Booking | None,

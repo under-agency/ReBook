@@ -16,7 +16,7 @@ def job_reminders() -> None:
     try:
         stats = send_reminders(db)
         db.commit()
-        if stats["first"] or stats["chase"]:
+        if any(stats.values()):
             log.info("Напоминания: %s", stats)
     except Exception:
         db.rollback()
