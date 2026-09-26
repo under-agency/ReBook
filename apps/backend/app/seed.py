@@ -114,7 +114,9 @@ def seed() -> None:
         c = Customer(
             salon_id=salon.id, name=name,
             phone=f"+79{rng.randint(100000000, 999999999)}",
-            tg_id=rng.randint(10**8, 10**9) if rng.random() < 0.6 else None,
+            # Telegram почти у всех: SMS не подключены (в журнале — заглушка stub),
+            # и отчёт засчитывает только доставленные напоминания
+            tg_id=rng.randint(10**8, 10**9) if rng.random() < 0.9 else None,
             last_visit_at=today - timedelta(days=days_ago),
             last_service_id=svc.id,
             do_not_disturb=(i % 14 == 13),
